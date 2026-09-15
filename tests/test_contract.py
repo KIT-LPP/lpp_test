@@ -11,7 +11,7 @@ import os
 import httpx
 import pytest
 
-from lpp_collector.api import LppApi, attempt_fields
+from lpp_collector.api import LppApi, attempt_fields, run_fields
 
 CONTRACT = json.load(
     open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "openapi.json"))
@@ -23,6 +23,7 @@ RESPONSES = {
     ("POST", "/api/consent"): (200, {"consentId": "c1"}),
     ("DELETE", "/api/consent"): (200, {"revoked": True}),
     ("POST", "/api/attempt"): (201, {"attemptId": "a1", "duplicate": False, "fileCount": 1, "bound": True}),
+    ("POST", "/api/run"): (201, {"runId": "r1", "duplicate": False, "fileCount": 1, "bound": True}),
     ("POST", "/api/submission"): (201, {"submissionId": "s", "submittedAt": "2026-04-01T00:00:00.000Z"}),
     ("GET", "/api/devices"): (200, {"devices": []}),
     ("DELETE", "/api/devices/b1"): (200, {"unbound": True}),
@@ -67,12 +68,20 @@ def test_every_call_matches_a_documented_route(recorded):
         },
         b"tar",
     )
+    api.post_run(
+        {
+            "idempotencyKey": "k",
+            "deviceId": "dev",
+            "deviceTime": "2026-04-01T00:00:00+09:00",
+        },
+        b"tar",
+    )
     api.post_submission("a1")
     api.list_devices()
     api.unbind_device("b1")
     api.list_assignments()
 
-    assert len(calls) == 9
+    assert len(calls) == 10
     for call in calls:
         spec = CONTRACT["paths"].get(_spec_path(call.url.path))
         assert spec is not None, f"契約にない経路: {call.url.path}"
@@ -173,3 +182,44 @@ def test_no_token_means_no_authorization_header(recorded):
     )
     # 未束縛でも収集は続く。トークンがないことは異常ではない
     assert "authorization" not in calls[0].headers
+
+
+def test_run_fields_match_the_schema():
+    schema = CONTRACT["components"]["schemas"]["RunRequest"]
+    fields = run_fields(
+        {
+            "kind": "run",
+            "idempotencyKey": "k",
+            "deviceId": "dev",
+            "deviceTime": "2026-04-01T00:00:00+09:00",
+            "deviceSentAt": "2026-04-01T00:00:01+09:00",
+            "runnerVersion": "0.3.0",
+            "imageDigest": "sha256:x",
+            "buildFlags": ["-g", "-fsanitize=address,undefined"],
+            "runtimeEnv": {"ASAN_OPTIONS": "detect_leaks=1"},
+            "argv": ["./a.out", "input.mpl"],
+            "buildExit": 0,
+            "buildDiagnostics": {"gcc": []},
+            "runExit": None,
+            "runSignal": 6,
+            "durationMs": 12,
+            "timedOut": False,
+            "stdout": "hi\n",
+            "stderr": "boom\n",
+        }
+    )
+    required = set(schema["required"]) - {"sourceCode"}
+    assert required <= set(fields)
+    # kind はキューの中だけのもので、契約には無い
+    assert set(fields) <= set(schema["properties"])
+    assert "kind" not in fields
+
+    # 測定条件が構造のまま届くこと
+    assert json.loads(fields["buildFlags"]) == ["-g", "-fsanitize=address,undefined"]
+    assert json.loads(fields["runtimeEnv"]) == {"ASAN_OPTIONS": "detect_leaks=1"}
+    assert json.loads(fields["argv"]) == ["./a.out", "input.mpl"]
+
+    # シグナルで落ちた実行は runExit を送らない。負の終了コードにしない
+    assert "runExit" not in fields
+    assert fields["runSignal"] == "6"
+    assert fields["timedOut"] == "false"

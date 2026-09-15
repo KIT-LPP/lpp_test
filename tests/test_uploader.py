@@ -12,12 +12,19 @@ class FakeApi:
     def __init__(self, error=None):
         self.error = error
         self.sent = []
+        self.runs = []
 
     def post_attempt(self, record, source_tar):
         self.sent.append((record, source_tar))
         if self.error is not None:
             raise self.error
         return {"attemptId": "a1", "duplicate": False}
+
+    def post_run(self, record, source_tar):
+        self.runs.append((record, source_tar))
+        if self.error is not None:
+            raise self.error
+        return {"runId": "r1", "duplicate": False}
 
     def close(self):
         pass
@@ -181,3 +188,30 @@ def test_an_unreachable_server_stops_the_round(tmp_path):
     assert up.flush() == 0
     assert len(api.sent) == 1
     assert len(up.pending()) == 3
+
+
+def test_a_run_goes_to_the_run_endpoint(tmp_path):
+    api = FakeApi()
+    up = make_uploader(tmp_path, api)
+    up.enqueue({**record("r1"), "kind": "run"}, b"tar")
+    up.enqueue(record("a1"), b"tar")
+
+    assert up.flush() == 2
+    assert [r[0]["idempotencyKey"] for r in api.runs] == ["r1"]
+    assert [a[0]["idempotencyKey"] for a in api.sent] == ["a1"]
+
+
+def test_a_queue_entry_without_a_kind_is_an_attempt(tmp_path):
+    """0.2.0 のキューには kind がない。"""
+    import json
+
+    api = FakeApi()
+    up = make_uploader(tmp_path, api)
+    entry = up.enqueue(record(), b"tar")
+    stored = json.loads((entry / "attempt.json").read_text())
+    stored.pop("kind")
+    (entry / "attempt.json").write_text(json.dumps(stored))
+
+    assert up.flush() == 1
+    assert len(api.sent) == 1
+    assert api.runs == []

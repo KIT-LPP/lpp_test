@@ -67,6 +67,7 @@ class Server:
                     "deviceToken": "tok",
                     "bindingId": "b1",
                     "priorAttempts": {"count": 3, "from": "2026-04-01T00:00:00Z", "to": "2026-04-02T00:00:00Z"},
+                    "priorRuns": {"count": 2, "from": "2026-04-01T00:00:00Z", "to": "2026-04-02T00:00:00Z"},
                 },
             )
         if path == "/api/consent" and request.method == "GET":
@@ -90,7 +91,7 @@ def test_consenting_records_all_three_answers():
     server = Server()
     whiptail = FakeWhiptail([YES, YES, YES])
 
-    assert flow.ask_consent(api_for(server, "tok"), whiptail, prior={"count": 3, "from": "a", "to": "b"})
+    assert flow.ask_consent(api_for(server, "tok"), whiptail, prior_summary="・テストの実行 3 件")
     assert server.posted_consent() == [
         {"researchOk": True, "publicationOk": True, "includePrior": True}
     ]
@@ -137,8 +138,9 @@ def test_setup_binds_the_device_and_then_asks(tmp_path, monkeypatch):
 
     assert device.student_id == "s1"
     assert device.device_token == "tok"
-    # 未束縛で溜まっていた件数を示してから include_prior を尋ねている
-    assert any("3 件" in text for text in whiptail.shown)
+    # 未束縛で溜まっていた件数を、試行と lpprun で分けて示している
+    assert any("テストの実行 3 件" in text for text in whiptail.shown)
+    assert any("lpprun の実行 2 件" in text for text in whiptail.shown)
     assert server.posted_consent() == [
         {"researchOk": True, "publicationOk": False, "includePrior": True}
     ]

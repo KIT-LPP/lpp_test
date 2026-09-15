@@ -50,13 +50,17 @@
           },
           "priorAttempts": {
             "$ref": "#/components/schemas/PriorAttempts"
+          },
+          "priorRuns": {
+            "$ref": "#/components/schemas/PriorAttempts"
           }
         },
         "required": [
           "studentId",
           "deviceToken",
           "bindingId",
-          "priorAttempts"
+          "priorAttempts",
+          "priorRuns"
         ]
       },
       "ErrorResponse": {
@@ -213,6 +217,111 @@
           "sourceCode"
         ]
       },
+      "RunResponse": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string"
+          },
+          "duplicate": {
+            "type": "boolean"
+          },
+          "fileCount": {
+            "type": "integer"
+          },
+          "bound": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "runId",
+          "duplicate",
+          "fileCount",
+          "bound"
+        ]
+      },
+      "RunRequest": {
+        "type": "object",
+        "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "deviceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "assignment": {
+            "type": "string",
+            "minLength": 1
+          },
+          "deviceTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deviceSentAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "runnerVersion": {
+            "type": "string"
+          },
+          "imageDigest": {
+            "type": "string"
+          },
+          "buildFlags": {
+            "type": "string",
+            "format": "json",
+            "description": "JSON encoded array. ビルドのフラグ"
+          },
+          "runtimeEnv": {
+            "type": "string",
+            "format": "json",
+            "description": "JSON encoded object. ASAN_OPTIONS など実行時に与えた環境"
+          },
+          "argv": {
+            "type": "string",
+            "format": "json",
+            "description": "JSON encoded array. 実行した引数"
+          },
+          "buildExit": {
+            "type": "integer"
+          },
+          "buildDiagnostics": {
+            "type": "string",
+            "format": "json",
+            "description": "JSON encoded. gcc -fdiagnostics-format=json の出力"
+          },
+          "runExit": {
+            "type": "integer"
+          },
+          "runSignal": {
+            "type": "integer"
+          },
+          "durationMs": {
+            "type": "integer"
+          },
+          "timedOut": {
+            "type": "boolean"
+          },
+          "stdout": {
+            "type": "string"
+          },
+          "stderr": {
+            "type": "string"
+          },
+          "sourceCode": {
+            "type": "string",
+            "format": "binary"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "deviceId",
+          "deviceTime",
+          "sourceCode"
+        ]
+      },
       "SubmissionRequest": {
         "type": "object",
         "properties": {
@@ -271,6 +380,7 @@
     "/api/setup": {
       "post": {
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -360,6 +470,7 @@
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -456,6 +567,7 @@
           {}
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "multipart/form-data": {
               "schema": {
@@ -528,6 +640,88 @@
         }
       }
     },
+    "/api/run": {
+      "post": {
+        "security": [
+          {
+            "deviceToken": []
+          },
+          {}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/RunRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Run stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request does not match the contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Device token was supplied but is not bound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Device token does not match the declared device",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Snapshot is too large, or the unbound quota is used up",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unknown assignment or unreadable archive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/submission": {
       "post": {
         "security": [
@@ -536,6 +730,7 @@
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {

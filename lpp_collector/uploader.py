@@ -60,6 +60,7 @@ class Uploader:
         別の値になり、サーバ側で重複を畳めない。内容から導出すると、
         同一ソースの再実行（step0 で実際の行動と確認した 25.4%）が潰れる。
         """
+        record.setdefault("kind", "attempt")
         key = record["idempotencyKey"]
         target = self.queue_dir / key
         staging = self.queue_dir / (key + ".partial")
@@ -146,7 +147,11 @@ class Uploader:
 
         api = self._api_factory(self.device.device_token)
         try:
-            api.post_attempt(record, source_tar)
+            # 0.2.0 のキューには kind がない。試行として送る
+            if record.get("kind") == "run":
+                api.post_run(record, source_tar)
+            else:
+                api.post_attempt(record, source_tar)
         except ApiError as e:
             if e.status_code == 401:
                 # 束縛が解除されたか、トークンが無効になっている。持ち続けても

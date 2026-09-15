@@ -51,8 +51,9 @@ LPP_PUBLICATION_TEXT = """
 """
 
 LPP_INCLUDE_PRIOR_TEXT = """
-この端末には、セットアップより前に実行したテストの記録が
-{count} 件あります ({period})。
+この端末には、セットアップより前の記録が残っています。
+
+{summary}
 
 これらを研究の対象に含めてよいですか。
 

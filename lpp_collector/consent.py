@@ -60,6 +60,21 @@ def _period(prior: Dict[str, Any]) -> str:
     return f"{start} 〜 {end}"
 
 
+def _prior_summary(setup_result: Dict[str, Any]) -> Optional[str]:
+    """セットアップ前に溜まっていた記録を数えて示す。
+
+    テストの試行と lpprun の実行は別に数える。どちらも同じ端末の名義で
+    溜まっていて、セットアップでまとめて学生に帰属するので、黙って
+    含めてはならない。
+    """
+    lines = []
+    for key, label in (("priorAttempts", "テストの実行"), ("priorRuns", "lpprun の実行")):
+        prior = setup_result.get(key) or {}
+        if prior.get("count"):
+            lines.append(f"・{label} {prior['count']} 件 ({_period(prior)})")
+    return "\n".join(lines) if lines else None
+
+
 # ---------------------------------------------------------------------------
 def run_setup(api_base: Optional[str], device: LppDevice, whiptail: Whiptail) -> bool:
     """端末と学籍番号を結びつける。成功したら True。"""
@@ -91,11 +106,14 @@ def run_setup(api_base: Optional[str], device: LppDevice, whiptail: Whiptail) ->
             return False
 
         device.bind(result["studentId"], result["deviceToken"], result["bindingId"])
-        prior = result.get("priorAttempts") or {}
         whiptail.msgbox(
             f"学籍番号 {result['studentId']} としてこの端末を登録しました。"
         )
-        return ask_consent(api_with_token(api_base, device), whiptail, prior=prior)
+        return ask_consent(
+            api_with_token(api_base, device),
+            whiptail,
+            prior_summary=_prior_summary(result),
+        )
 
 
 def api_with_token(api_base: Optional[str], device: LppDevice) -> LppApi:
@@ -106,7 +124,7 @@ def api_with_token(api_base: Optional[str], device: LppDevice) -> LppApi:
 
 # ---------------------------------------------------------------------------
 def ask_consent(
-    api: LppApi, whiptail: Whiptail, prior: Optional[Dict[str, Any]] = None
+    api: LppApi, whiptail: Whiptail, prior_summary: Optional[str] = None
 ) -> bool:
     """研究利用の同意を尋ねて記録する。"""
     with api:
@@ -130,10 +148,8 @@ def ask_consent(
                 print("同意の確認を中断しました。記録は変えていません")
                 return False
 
-            if prior and prior.get("count"):
-                text = LPP_INCLUDE_PRIOR_TEXT.format(
-                    count=prior["count"], period=_period(prior)
-                )
+            if prior_summary:
+                text = LPP_INCLUDE_PRIOR_TEXT.format(summary=prior_summary)
             elif current is None:
                 # この端末に前の分がなくても、別の端末の分がありうる
                 text = LPP_INCLUDE_PRIOR_FIRST_TEXT

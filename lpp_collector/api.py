@@ -71,6 +71,31 @@ def attempt_fields(record: Dict[str, Any]) -> Dict[str, str]:
     return fields
 
 
+def run_fields(record: Dict[str, Any]) -> Dict[str, str]:
+    """lpprun の実行の multipart のテキスト側を組み立てる。
+
+    測定条件 (buildFlags, runtimeEnv) は毎回送る。サニタイザを既定で
+    有効にしているので、条件が分からない行は後から使えない。
+    """
+    fields: Dict[str, str] = {
+        "idempotencyKey": record["idempotencyKey"],
+        "deviceId": record["deviceId"],
+        "deviceTime": record["deviceTime"],
+    }
+    for key in ("assignment", "deviceSentAt", "runnerVersion", "imageDigest", "stdout", "stderr"):
+        if record.get(key) is not None:
+            fields[key] = str(record[key])
+    for key in ("buildFlags", "runtimeEnv", "argv", "buildDiagnostics"):
+        if record.get(key) is not None:
+            fields[key] = json.dumps(record[key], ensure_ascii=False)
+    for key in ("buildExit", "runExit", "runSignal", "durationMs"):
+        if record.get(key) is not None:
+            fields[key] = str(int(record[key]))
+    if record.get("timedOut") is not None:
+        fields["timedOut"] = "true" if record["timedOut"] else "false"
+    return fields
+
+
 class LppApi:
     def __init__(
         self,
@@ -153,6 +178,15 @@ class LppApi:
             "/api/attempt",
             201,
             data=attempt_fields(record),
+            files={"sourceCode": ("source.tar", source_tar, "application/x-tar")},
+        )
+
+    def post_run(self, record: Dict[str, Any], source_tar: bytes) -> Dict[str, Any]:
+        return self._call(
+            "POST",
+            "/api/run",
+            201,
+            data=run_fields(record),
             files={"sourceCode": ("source.tar", source_tar, "application/x-tar")},
         )
 

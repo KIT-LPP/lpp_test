@@ -1,6 +1,6 @@
 [project]
 name = "lpp-collector"
-version = "0.2.0"
+version = "0.3.0"
 description = ""
 authors = [{ name = "f0reachARR", email = "f0reach@f0reach.me" }]
 requires-python = ">=3.9"
@@ -17,6 +17,8 @@ dependencies = [
 lppconsent = "lpp_collector.consent:main"
 lppsetup = "lpp_collector.consent:setup_main"
 lpptest = "lpp_collector.runner:main_PYTHON_ARGCOMPLETE_OK"
+lpprun = "lpp_collector.lpprun:main"
+lppc = "lpp_collector.lpprun:compile_main"
 lppshell = "lpp_collector.shell:main"
 
 [project.entry-points.pytest11]

@@ -51,6 +51,9 @@ class LppCollector:
     def result(self) -> List[Dict[str, Any]]:
         return self.aggregator.result()
 
+    def _failed(self) -> bool:
+        return any(row["outcome"] != "passed" for row in self.aggregator.result())
+
     def pytest_sessionfinish(self, session, exitstatus):
         assignment = os.environ.get("LPP_TESTSUITE")
         if not assignment:
@@ -86,6 +89,13 @@ class LppCollector:
         self.uploader.flush(
             newest_first=True, deadline=time.monotonic() + FOREGROUND_DEADLINE
         )
+
+        if self._failed():
+            # サニタイザ付きで動かすと原因が出ることがある
+            print(
+                "[lpp] 失敗したテストがあります。"
+                "`lpprun <入力ファイル>` で同じソースをサニタイザ付きで動かせます"
+            )
 
         for message in self.uploader.errors:
             print(f"[lpp] {message}")
