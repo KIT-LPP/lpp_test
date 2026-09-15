@@ -16,6 +16,26 @@ pipx install git+https://github.com/f0reachARR/lpp_test --force
 これにより，`lpptest`コマンドがインストールされる．
 インストール後は，ソースコードのあるディレクトリで`lpptest`コマンドを実行することでテストを行うことができる．
 
+## セットアップと同意
+
+初めて使う端末では、まず端末とあなたの学籍番号を結びつけます。
+
+```bash
+lppsetup      # 既に lpptest を入れてある端末では lppconsent でも同じ流れになります
+```
+
+Redmine のあなたのプロジェクトの Wiki にある「セットアップ」のページから
+トークンを貼り付けてください。トークンをコマンドの引数に書かないでください。
+入力の履歴が端末に残ります。
+
+続けて研究利用への同意を尋ねます。同意しない場合も課題の実施には影響せず、
+成績評価にも影響しません。同意の変更・取り消しと、端末の結びつきの解除は
+いつでも `lppconsent` から行えます。
+
+**テストの結果とソースコードの収集は、同意の有無に依らず行われます。**
+提出とフィードバックのために必要な処理だからです。研究に使うかどうかだけが
+同意で決まります。
+
 ## テストの実行
 
 ### 課題1の場合
@@ -81,3 +101,44 @@ lpptest 04test
 * /lpp/test/0[1234]test/test_expects : 各課題に対するテストの期待される出力(オラクル)
   * 以下のテストでは，エラーが出力される想定のものは，エラーの出た行番号が同じであればPASSとなる．
 * /lpp/test/coverage : C0カバレッジを上げていくためのテストケース(上記テストでは使わない)
+
+## 開発
+
+### サーバとの契約
+
+API の契約の単一の情報源はサーバ (`lpp_collector_v2`) の `src/api.ts` で、
+その写しが `openapi.json` です。契約が変わったらサーバ側で
+`bun run openapi:write` して、このレポジトリの `openapi.json` を置き換えます。
+
+クライアントは手書き (`lpp_collector/api.py`) で、送る形が契約と一致することを
+`tests/test_contract.py` が `openapi.json` と突き合わせて検査します。
+
+### テスト
+
+```bash
+uv sync
+uv run pytest tests -c tests/pytest.ini
+```
+
+`tests/pytest.ini` で収集プラグインを外しています。付けたままだと、
+テストを走らせるたびに `tests/` の実行が試行としてキューに積まれます。
+
+実物のサーバに対する通し確認 (セットアップ → 未束縛のアップロード → 同意 →
+束縛済みのアップロード → 提出) は、接続先とトークンを渡したときだけ走ります。
+
+```bash
+# サーバ側
+cd ../lpp_collector_v2
+DB_NAME=lpp_dev PORT=13459 bun run src/index.ts
+bun run scripts/issue-tokens.ts roster.csv --commit --out tokens.tsv
+
+# クライアント側
+LPP_TEST_SERVER=http://127.0.0.1:13459 LPP_TEST_TOKEN=... \
+  uv run pytest tests -c tests/pytest.ini
+```
+
+### 送信のキュー
+
+試行は送る前に `~/.config/lpp/upload_queue/<冪等キー>/` へ書きます。
+送れなかったものはそこに残り、次回の実行で送り直します。契約に合わずに
+拒まれたものは `upload_failed/` へ移り、再送の対象から外れます。
