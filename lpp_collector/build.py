@@ -57,6 +57,42 @@ def parse_diagnostics(stderr: str) -> Tuple[List[Any], str]:
     return diagnostics, "\n".join(rest)
 
 
+def render_diagnostics(diagnostics: List[Any]) -> str:
+    """JSON の診断を人が読める形に戻す。
+
+    `-fdiagnostics-format=json` は人向けの出力を **置き換える**ので、
+    そのままでは学生の画面からコンパイルエラーが消える。構造は送り、
+    表示はここで組み立てる。
+    """
+    lines: List[str] = []
+
+    def one(diagnostic: Any, indent: str = ""):
+        if not isinstance(diagnostic, dict):
+            return
+        where = ""
+        locations = diagnostic.get("locations") or []
+        if locations and isinstance(locations[0], dict):
+            caret = locations[0].get("caret") or {}
+            if caret.get("file"):
+                where = "{}:{}:{}: ".format(
+                    caret.get("file"), caret.get("line", ""), caret.get("column", "")
+                )
+        option = diagnostic.get("option")
+        suffix = f" [{option}]" if option else ""
+        lines.append(
+            "{}{}{}: {}{}".format(
+                indent, where, diagnostic.get("kind", "note"),
+                diagnostic.get("message", ""), suffix,
+            )
+        )
+        for child in diagnostic.get("children") or []:
+            one(child, indent + "  ")
+
+    for diagnostic in diagnostics:
+        one(diagnostic)
+    return "\n".join(lines)
+
+
 def compile_target(target: str, source_dir: str) -> BuildResult:
     """課題をビルドし、結果を記録する。
 
@@ -82,6 +118,8 @@ def compile_target(target: str, source_dir: str) -> BuildResult:
         universal_newlines=True,
     )
     diagnostics, text = parse_diagnostics(proc.stderr or "")
+    # 学生に見せる側。JSON は人向けの出力を置き換えてしまうので組み立て直す
+    shown = "\n".join(part for part in (render_diagnostics(diagnostics), text) if part)
 
     global _record
     _record = {
@@ -94,11 +132,10 @@ def compile_target(target: str, source_dir: str) -> BuildResult:
         },
     }
 
-    # 学生の画面には人が読める側だけ出す
-    if text:
-        print(text)
+    if shown:
+        print(shown)
 
-    return BuildResult(proc.returncode, proc.stdout or "", text, command)
+    return BuildResult(proc.returncode, proc.stdout or "", shown, command)
 
 
 def take_build_record() -> Optional[Dict[str, Any]]:

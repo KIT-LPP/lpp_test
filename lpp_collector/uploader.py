@@ -30,6 +30,10 @@ SENDING_SUFFIX = ".sending"
 # 学生を待たせないための上限。残りは次回の背景送信が引き取る
 FOREGROUND_DEADLINE = 30.0
 
+# 送信中のまま取り残されたものを戻すまでの時間。走っている送信を
+# 横取りしないよう、読み込みの待ち時間より長く取る
+STALE_SENDING = 300.0
+
 
 class Uploader:
     def __init__(
@@ -45,6 +49,7 @@ class Uploader:
         self._api_factory = api_factory or (lambda token: LppApi(token=token))
         self._thread: Optional[threading.Thread] = None
         self._stop = threading.Event()
+        self._unreachable = False
         self.errors: List[str] = []
 
     # -----------------------------------------------------------------
@@ -89,6 +94,7 @@ class Uploader:
         滞留させていた。
         """
         self._move_legacy_queue_files()
+        self._recover_stale_sending()
         sent = 0
         for entry in self.pending(newest_first=newest_first):
             if self._stop.is_set():
@@ -97,7 +103,28 @@ class Uploader:
                 break
             if self._send_one(entry):
                 sent += 1
+            elif self._unreachable:
+                # サーバに届かないなら残りも届かない。接続の待ち時間を
+                # 件数分だけ積み上げて学生を待たせる意味がない
+                break
         return sent
+
+    def _recover_stale_sending(self):
+        """送信中のまま取り残されたものを戻す。
+
+        送っている途中でプロセスが終わると `.sending` のまま残り、
+        `pending()` からも外れて二度と送られない。
+        """
+        if not self.queue_dir.exists():
+            return
+        now = time.time()
+        for entry in self.queue_dir.glob("*" + SENDING_SUFFIX):
+            if not entry.is_dir() or now - entry.stat().st_mtime < STALE_SENDING:
+                continue
+            try:
+                os.replace(entry, entry.with_name(entry.name[: -len(SENDING_SUFFIX)]))
+            except OSError:
+                pass
 
     def _send_one(self, entry: Path) -> bool:
         claimed = entry.with_name(entry.name + SENDING_SUFFIX)
@@ -133,6 +160,8 @@ class Uploader:
                 os.replace(claimed, entry)
                 return False
             if e.is_retryable:
+                if e.status_code == 0:
+                    self._unreachable = True
                 self._note(f"アップロードを保留しました: {e}")
                 os.replace(claimed, entry)
                 return False

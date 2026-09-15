@@ -147,3 +147,37 @@ def test_the_old_pickle_queue_is_moved_aside(tmp_path):
     assert uploader.flush() == 1
     assert (tmp_path / "failed" / "legacy" / "1699999999.0.dat").exists()
     assert uploader.pending() == []
+
+
+def test_an_interrupted_send_comes_back(tmp_path, monkeypatch):
+    """送っている途中でプロセスが終わったものを取り残さない。"""
+    import os
+    import time
+
+    from lpp_collector import uploader as module
+
+    api = FakeApi()
+    up = make_uploader(tmp_path, api)
+    entry = up.enqueue(record(), b"tar")
+    stuck = entry.with_name(entry.name + ".sending")
+    os.replace(entry, stuck)
+
+    assert up.pending() == []
+    # 走っている送信は横取りしない
+    assert up.flush() == 0
+
+    old = time.time() - module.STALE_SENDING - 1
+    os.utime(stuck, (old, old))
+    assert up.flush() == 1
+
+
+def test_an_unreachable_server_stops_the_round(tmp_path):
+    """届かないと分かった後も 1 件ずつ接続を待たない。"""
+    api = FakeApi(error=ApiError(0, "unreachable"))
+    up = make_uploader(tmp_path, api)
+    for key in ("a", "b", "c"):
+        up.enqueue(record(key), b"tar")
+
+    assert up.flush() == 0
+    assert len(api.sent) == 1
+    assert len(up.pending()) == 3

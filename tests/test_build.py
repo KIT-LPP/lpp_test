@@ -32,8 +32,29 @@ def test_a_broken_source_fails_and_records_diagnostics(tmp_path):
     result = build.compile_target("a.out", str(tmp_path))
     assert not result.ok
 
+    # 学生の画面にエラーが残ること。JSON は人向けの出力を置き換えるので、
+    # 送る側だけ見ていると画面から消えていることに気付けない
+    assert "error" in result.message
+    assert "main.c" in result.message
+
     record = build.take_build_record()
     assert record["exit"] != 0
     assert record["diagnostics"]["gcc"], "JSON の診断が取れていない"
     # 取り出しは 1 回だけ。同じセッションで二重に送らない
     assert build.take_build_record() is None
+
+
+def test_diagnostics_are_rendered_for_the_student():
+    text = build.render_diagnostics(
+        [
+            {
+                "kind": "error",
+                "message": "expected ';' before '}' token",
+                "option": "-Wall",
+                "locations": [{"caret": {"file": "main.c", "line": 1, "column": 24}}],
+                "children": [{"kind": "note", "message": "ここ", "locations": []}],
+            }
+        ]
+    )
+    assert "main.c:1:24: error: expected ';' before '}' token [-Wall]" in text
+    assert "  note: ここ" in text
