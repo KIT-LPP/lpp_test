@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -10,7 +11,30 @@ from lpp_collector.config import (
     LPP_UPDATE_MARKER,
     TARGETPATH,
 )
+from .version import package_version
 import sys
+
+
+def image_digest() -> str:
+    """走らせるイメージの digest。
+
+    `testCases` を送っていないので、スイートの版はこれで同定する。
+    """
+    try:
+        digests = (
+            subprocess.check_output(
+                ["docker", "inspect", "--format", "{{json .RepoDigests}}", DOCKER_IMAGE],
+                stderr=subprocess.DEVNULL,
+            )
+            .decode("utf-8")
+            .strip()
+        )
+        parsed = json.loads(digests)
+        if parsed:
+            return str(parsed[0])
+    except (subprocess.CalledProcessError, ValueError, OSError):
+        pass
+    return ""
 
 
 def run_test_container(args: List[str]):
@@ -31,6 +55,15 @@ def run_test_container(args: List[str]):
             f"TARGET_GID={os.getgid()}",
         ]
 
+    # コンテナ側が版のずれと走っているイメージを知るための情報。
+    # ホスト側の wrapper は pipx で入れた版のままなのでずれうる
+    env_args = [
+        "--env",
+        f"LPP_HOST_VERSION={package_version()}",
+        "--env",
+        f"LPP_IMAGE_DIGEST={image_digest()}",
+    ]
+
     run_args = [
         "run",
         "-it",
@@ -45,6 +78,7 @@ def run_test_container(args: List[str]):
         "-w",
         "/workspaces",
         *fix_perm_args,
+        *env_args,
         DOCKER_IMAGE,
         *args,
     ]

@@ -91,6 +91,10 @@ def run_pytest(args):
 
     pwd = os.getcwd()
     os.environ["LPP_TARGET_PATH"] = pwd
+    # 課題名はここでしか分からない。プラグインは環境変数で受け取る。
+    # 従来はプラグインが "a" という固定値を申告しており、どの課題の試行か
+    # サーバ側で区別できなかった
+    os.environ["LPP_TESTSUITE"] = testsuite
     subprocess.call(
         [
             "pytest",
