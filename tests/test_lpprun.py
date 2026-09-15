@@ -99,16 +99,49 @@ def test_a_program_that_aborts_is_recorded_as_a_signal(tmp_path):
 
 
 def test_a_runaway_program_is_cut_off(tmp_path):
+    """改行を出さずに回り続けるプログラムでも流れ続けること。
+
+    行で読むと 1 行も返らないので、打ち切りまで何も画面に出ず、
+    そのあと溜まった全部が一度に出る。
+    """
     build, run = build_and_run(
         tmp_path,
-        '#include <stdio.h>\nint main(void){ for(;;) puts("x"); }\n',
+        "#include <stdio.h>\nint main(void){ for(;;) putchar('x'); }\n",
         timeout=1.5,
         sanitize=False,
     )
     assert build.ok
     assert run.timed_out
+    assert len(run.stdout) > 0
     # 端末のメモリを埋めない
     assert len(run.stdout) <= lpprun.MAX_OUTPUT_BYTES + 4096
+
+
+def test_a_leak_report_is_captured_whole(tmp_path):
+    """LeakSanitizer の報告は終了の直後に出る。
+
+    読み切る前に諦めると、切れた報告が完全なものとして記録される。
+    """
+    build, run = build_and_run(
+        tmp_path,
+        """#include <stdlib.h>
+#include <stdio.h>
+static void leak(int n){ void *p = malloc(32 + n); if (!p) return; }
+int main(void){
+  for (int i = 0; i < 40; i++) leak(i);
+  printf("done\\n");
+  return 0;
+}
+""",
+    )
+    assert build.ok
+    assert "LeakSanitizer" in run.stderr
+    # 末尾まで読めていること
+    assert "SUMMARY: AddressSanitizer:" in run.stderr
+    # 報告の最後の行まで届いていること
+    last = [line for line in run.stderr.splitlines() if line.strip()][-1]
+    assert last.startswith("SUMMARY: AddressSanitizer:"), last
+    assert "40 allocation(s)" in last
 
 
 def test_a_prompt_appears_before_the_program_reads_stdin(tmp_path):
@@ -169,7 +202,7 @@ def test_the_record_carries_the_measurement_condition(tmp_path):
     )
     device = LppDevice(str(tmp_path / "device.json"))
     record = lpprun.make_record(
-        device, datetime.now().astimezone(), build, run, ["./a.out"], None
+        device, datetime.now().astimezone(), build, run, ["./a.out"]
     )
 
     assert record["kind"] == "run"

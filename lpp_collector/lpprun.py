@@ -18,6 +18,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import uuid
@@ -33,6 +34,9 @@ from .uploader import FOREGROUND_DEADLINE, Uploader
 
 UNBUFFER_HEADER = os.path.join(os.path.dirname(__file__), "runtime", "lpp_unbuffer.h")
 
+# ソースが 1 つも無い。ビルドを試してすらいないので記録も残さない
+NO_SOURCES = 127
+
 SANITIZERS = "address,undefined"
 BASE_FLAGS = ["-g", "-O0", "-fno-omit-frame-pointer", "-Wall", "-Wextra"]
 
@@ -44,9 +48,11 @@ RUNTIME_ENV = {
     "ASAN_OPTIONS": "detect_leaks=1:abort_on_error=0",
 }
 
-# 出力の上限。サーバ側でも切るが、無限ループの出力で端末のメモリを
-# 埋めないようこちらでも止める
-MAX_OUTPUT_BYTES = 64 * 1024
+# 手元での上限。サーバ側の上限 (64KB) より十分大きく取る。ここで先に
+# 切ると「切った」ことがサーバに伝わらず、切れた報告が完全なものとして
+# 記録される。無限ループの出力で端末のメモリを埋めないための歯止めで、
+# 実際の切り詰めはサーバ側が行って truncated の印を付ける
+MAX_OUTPUT_BYTES = 1024 * 1024
 DEFAULT_TIMEOUT = float(os.environ.get("LPP_RUN_TIMEOUT", 300))
 
 
@@ -79,7 +85,10 @@ def build(source_dir: str, out_path: str, sanitize: bool = True) -> BuildOutcome
     sources = sorted(glob(os.path.join(source_dir, "*.c")))
     if not sources:
         return BuildOutcome(
-            127, build_flags(sanitize), {}, f"{source_dir} に .c ファイルがありません"
+            NO_SOURCES,
+            build_flags(sanitize),
+            {},
+            f"{source_dir} に .c ファイルがありません",
         )
 
     flags = build_flags(sanitize)
@@ -128,8 +137,20 @@ class RunOutcome:
 
 
 def _pump(stream, sink, buffer: List[str], limit: List[int]):
-    """子の出力を画面へ流しながら手元にも溜める。"""
-    for chunk in iter(lambda: stream.readline(), b""):
+    """子の出力を画面へ流しながら手元にも溜める。
+
+    行ではなく塊で読む。改行を出さずに回り続けるプログラム
+    (`for(;;) putchar('x');`) は 1 行も返さないので、readline だと打ち切りまで
+    何も流れず、そのあと溜まった全部が一度に画面へ出る。
+    """
+    fd = stream.fileno()
+    while True:
+        try:
+            chunk = os.read(fd, 4096)
+        except OSError:
+            break
+        if not chunk:
+            break
         text = chunk.decode("utf-8", "replace")
         sink.write(text)
         sink.flush()
@@ -176,18 +197,24 @@ def run_program(
         t.daemon = True
         t.start()
 
+    killed = False
     try:
         proc.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         outcome.timed_out = True
+        killed = True
         proc.kill()
         proc.wait()
     except KeyboardInterrupt:
+        killed = True
         proc.kill()
         proc.wait()
 
+    # 子が終われば パイプは閉じるので、待ち時間を切らずに読み切る。
+    # サニタイザの報告は終了の直後に出る。LeakSanitizer の報告は数十 KB に
+    # なることがあり、途中で諦めると切れた報告を完全なものとして記録する。
     for t in threads:
-        t.join(timeout=1.0)
+        t.join(timeout=5.0 if killed else None)
 
     outcome.duration_ms = int((time.monotonic() - started) * 1000)
     if proc.returncode is not None and proc.returncode < 0:
@@ -207,7 +234,6 @@ def make_record(
     build_outcome: BuildOutcome,
     run_outcome: Optional[RunOutcome],
     argv: List[str],
-    assignment: Optional[str],
 ) -> Dict[str, Any]:
     from . import runner_version
 
@@ -215,7 +241,6 @@ def make_record(
         "kind": "run",
         "idempotencyKey": str(uuid.uuid4()),
         "deviceId": device.device_id,
-        "assignment": assignment,
         "deviceTime": device_time.isoformat(),
         "runnerVersion": runner_version(),
         "imageDigest": os.environ.get("LPP_IMAGE_DIGEST"),
@@ -260,10 +285,6 @@ def build_parser(prog: str, build_only: bool) -> argparse.ArgumentParser:
         action="store_true",
         help="サニタイザを付けずにビルドする",
     )
-    parser.add_argument(
-        "--assignment",
-        help="課題名 (01test など)。分かる場合だけ",
-    )
     if not build_only:
         parser.add_argument(
             "--timeout",
@@ -285,9 +306,11 @@ def execute(argv: List[str], build_only: bool) -> int:
     device_time = datetime.now().astimezone()
     source_dir = TARGETPATH
 
-    work = os.path.join(LPP_DATA_DIR, "build")
-    shutil.rmtree(work, ignore_errors=True)
-    os.makedirs(work, exist_ok=True)
+    # 実行ごとに別の場所へ置く。同じアカウントで 2 つの端末から動かしても
+    # 互いの実行ファイルを消さない
+    root = os.path.join(LPP_DATA_DIR, "build")
+    os.makedirs(root, exist_ok=True)
+    work = tempfile.mkdtemp(dir=root)
     binary = os.path.join(work, "a.out")
 
     outcome = build(source_dir, binary, sanitize=not opts.no_sanitize)
@@ -308,12 +331,18 @@ def execute(argv: List[str], build_only: bool) -> int:
     elif not outcome.ok:
         print("[lpp] ビルドに失敗しました")
 
+    if outcome.exit_code == NO_SOURCES:
+        # ビルドすら始まっていない。記録に残す意味がない
+        shutil.rmtree(work, ignore_errors=True)
+        return 1
+
     argv_recorded = ["./a.out", *[a for a in getattr(opts, "args", []) if a != "--"]]
     collect(
-        make_record(device, device_time, outcome, run_outcome, argv_recorded, opts.assignment),
+        make_record(device, device_time, outcome, run_outcome, argv_recorded),
         device,
         source_dir,
     )
+    shutil.rmtree(work, ignore_errors=True)
 
     if not outcome.ok:
         return 1
