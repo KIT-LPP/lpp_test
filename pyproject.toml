@@ -1,28 +1,29 @@
 [project]
 name = "lpp-collector"
-version = "0.1.6"
+version = "0.2.0"
 description = ""
 authors = [{ name = "f0reachARR", email = "f0reach@f0reach.me" }]
-requires-python = ">=3.6"
+requires-python = ">=3.9"
 readme = "README.md"
 dependencies = [
     "pytest>=6.2.5,<7",
     "whiptail-dialogs>=0.4.0,<0.5",
     "httpx>=0.20.0,<0.28.0",
-    "attrs>=21.3.0",
-    "python-dateutil>=2.8.0,<3",
     "pytest-timeout>=2,<3",
     "argcomplete>=3,<4",
-    "pytest-json-report>=1.5.0,<2",
 ]
 
 [project.scripts]
 lppconsent = "lpp_collector.consent:main"
+lppsetup = "lpp_collector.consent:setup_main"
 lpptest = "lpp_collector.runner:main_PYTHON_ARGCOMPLETE_OK"
 lppshell = "lpp_collector.shell:main"
 
 [project.entry-points.pytest11]
 lpp_collector = "lpp_collector"
+
+[dependency-groups]
+dev = ["pytest>=6.2.5,<7"]
 
 [build-system]
 requires = ["hatchling"]
