@@ -19,9 +19,16 @@ COPY docker/mk_motd.sh docker/aqua.png ./
 RUN bash mk_motd.sh aqua.png
 
 # Starship
+ARG TARGETARCH
 WORKDIR /starship
-RUN wget https://github.com/starship/starship/releases/download/v1.19.0/starship-x86_64-unknown-linux-gnu.tar.gz \
-    && tar xvf starship-x86_64-unknown-linux-gnu.tar.gz
+# starship publishes no aarch64 gnu build; the musl one is static, so it runs on Ubuntu too
+RUN case "${TARGETARCH}" in \
+    amd64) starship_target=x86_64-unknown-linux-gnu ;; \
+    arm64) starship_target=aarch64-unknown-linux-musl ;; \
+    *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+    && wget "https://github.com/starship/starship/releases/download/v1.19.0/starship-${starship_target}.tar.gz" \
+    && tar xvf "starship-${starship_target}.tar.gz"
 
 ################################################################################
 FROM ubuntu:22.04 AS build_collector
