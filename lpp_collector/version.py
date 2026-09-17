@@ -23,13 +23,13 @@ def warn_on_version_skew() -> bool:
     if LPP_HOST_VERSION is None:
         print(
             "[lpp] ホスト側の lpptest が古い版です "
-            "(`pipx install git+https://github.com/f0reachARR/lpp_test --force` で入れ直せます)"
+            "(`pipx install git+https://github.com/KIT-LPP/lpp_test --force` で入れ直せます)"
         )
         return True
     if LPP_HOST_VERSION != container:
         print(
             f"[lpp] ホスト側 {LPP_HOST_VERSION} とテスト環境 {container} の版が違います "
-            "(`pipx install git+https://github.com/f0reachARR/lpp_test --force` で入れ直せます)"
+            "(`pipx install git+https://github.com/KIT-LPP/lpp_test --force` で入れ直せます)"
         )
         return True
     return False

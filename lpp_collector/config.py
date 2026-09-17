@@ -113,7 +113,7 @@ IS_DOCKER_ENV = os.path.exists("/.dockerenv")
 DOCKER_IMAGE = (
     os.environ["DOCKER_IMAGE"]
     if "DOCKER_IMAGE" in os.environ
-    else "ghcr.io/f0reacharr/lpp_test:latest"
+    else "ghcr.io/kit-lpp/lpp_test:latest"
 )
 
 
