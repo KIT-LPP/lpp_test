@@ -10,7 +10,7 @@ KIT言語処理プログラミング課題におけるテスト環境
 その後、以下のコマンドを実行する．
 
 ```bash
-pipx install git+https://github.com/f0reachARR/lpp_test --force
+pipx install git+https://github.com/KIT-LPP/lpp_test --force
 ```
 
 これにより，`lpptest`コマンドがインストールされる．

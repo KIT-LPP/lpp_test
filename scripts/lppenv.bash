@@ -7,7 +7,7 @@ echo "Welcome to KIT Language Processing Programming"
 echo "=============================================="
 
 # Set the environment variables
-DOCKER_IMAGE="ghcr.io/f0reacharr/lpp_test"
+DOCKER_IMAGE="ghcr.io/kit-lpp/lpp_test"
 CONFIG_FILE="config.env"
 CONFIG_BASE_DIR=${XDG_CONFIG_HOME:-$HOME/.config}
 CONFIG_DIR="$CONFIG_BASE_DIR/lpp"
