@@ -12,6 +12,7 @@ import argcomplete, argparse
 import glob
 from pathlib import Path
 from .docker import fix_permission, run_test_container, run_debug_build, update
+from .version import warn_on_version_skew
 import os
 
 
@@ -91,6 +92,10 @@ def run_pytest(args):
 
     pwd = os.getcwd()
     os.environ["LPP_TARGET_PATH"] = pwd
+    # 課題名はここでしか分からない。プラグインは環境変数で受け取る。
+    # 従来はプラグインが "a" という固定値を申告しており、どの課題の試行か
+    # サーバ側で区別できなかった
+    os.environ["LPP_TESTSUITE"] = testsuite
     subprocess.call(
         [
             "pytest",
@@ -113,6 +118,9 @@ def main():
         return
 
     if args.run_pytest or IS_DOCKER_ENV:
+        if IS_DOCKER_ENV:
+            # 学生が普段使うのは lpptest なので、版のずれはここで知らせる
+            warn_on_version_skew()
         run_pytest(args)
     else:
         if "LPP_DOCKER_BASE" in os.environ:

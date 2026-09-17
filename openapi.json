@@ -1,0 +1,957 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "version": "2.0.0",
+    "title": "SEL"
+  },
+  "components": {
+    "securitySchemes": {
+      "deviceToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "セットアップの応答で返る端末トークン。端末の device.json に 0600 で保存する"
+      }
+    },
+    "schemas": {
+      "PriorAttempts": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer"
+          },
+          "from": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "count",
+          "from",
+          "to"
+        ]
+      },
+      "SetupResponse": {
+        "type": "object",
+        "properties": {
+          "studentId": {
+            "type": "string"
+          },
+          "deviceToken": {
+            "type": "string"
+          },
+          "bindingId": {
+            "type": "string"
+          },
+          "priorAttempts": {
+            "$ref": "#/components/schemas/PriorAttempts"
+          },
+          "priorRuns": {
+            "$ref": "#/components/schemas/PriorAttempts"
+          }
+        },
+        "required": [
+          "studentId",
+          "deviceToken",
+          "bindingId",
+          "priorAttempts",
+          "priorRuns"
+        ]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "SetupRequest": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "deviceId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "token",
+          "deviceId"
+        ]
+      },
+      "ConsentState": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "researchOk": {
+            "type": "boolean"
+          },
+          "publicationOk": {
+            "type": "boolean"
+          },
+          "includePrior": {
+            "type": "boolean"
+          },
+          "decidedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "researchOk",
+          "publicationOk",
+          "includePrior",
+          "decidedAt"
+        ]
+      },
+      "ConsentRequest": {
+        "type": "object",
+        "properties": {
+          "researchOk": {
+            "type": "boolean"
+          },
+          "publicationOk": {
+            "type": "boolean"
+          },
+          "includePrior": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "researchOk",
+          "publicationOk",
+          "includePrior"
+        ]
+      },
+      "AttemptResponse": {
+        "type": "object",
+        "properties": {
+          "attemptId": {
+            "type": "string"
+          },
+          "duplicate": {
+            "type": "boolean"
+          },
+          "fileCount": {
+            "type": "integer"
+          },
+          "bound": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "attemptId",
+          "duplicate",
+          "fileCount",
+          "bound"
+        ]
+      },
+      "AttemptRequest": {
+        "type": "object",
+        "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "deviceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "assignment": {
+            "type": "string",
+            "minLength": 1
+          },
+          "deviceTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deviceSentAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "runnerVersion": {
+            "type": "string"
+          },
+          "imageDigest": {
+            "type": "string"
+          },
+          "buildExit": {
+            "type": "integer"
+          },
+          "buildDiagnostics": {
+            "type": "string",
+            "format": "json",
+            "description": "JSON encoded. gcc -fdiagnostics-format=json の出力"
+          },
+          "result": {
+            "type": "string",
+            "format": "json",
+            "description": "JSON encoded array. pytest の各 report を {nodeid, outcome, longrepr, duration, when} で並べたもの"
+          },
+          "sourceCode": {
+            "type": "string",
+            "format": "binary"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "deviceId",
+          "assignment",
+          "deviceTime",
+          "result",
+          "sourceCode"
+        ]
+      },
+      "RunResponse": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string"
+          },
+          "duplicate": {
+            "type": "boolean"
+          },
+          "fileCount": {
+            "type": "integer"
+          },
+          "bound": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "runId",
+          "duplicate",
+          "fileCount",
+          "bound"
+        ]
+      },
+      "RunRequest": {
+        "type": "object",
+        "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "deviceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "assignment": {
+            "type": "string",
+            "minLength": 1
+          },
+          "deviceTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deviceSentAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "runnerVersion": {
+            "type": "string"
+          },
+          "imageDigest": {
+            "type": "string"
+          },
+          "buildFlags": {
+            "type": "string",
+            "format": "json",
+            "description": "JSON encoded array. ビルドのフラグ"
+          },
+          "runtimeEnv": {
+            "type": "string",
+            "format": "json",
+            "description": "JSON encoded object. ASAN_OPTIONS など実行時に与えた環境"
+          },
+          "argv": {
+            "type": "string",
+            "format": "json",
+            "description": "JSON encoded array. 実行した引数"
+          },
+          "buildExit": {
+            "type": "integer"
+          },
+          "buildDiagnostics": {
+            "type": "string",
+            "format": "json",
+            "description": "JSON encoded. gcc -fdiagnostics-format=json の出力"
+          },
+          "runExit": {
+            "type": "integer"
+          },
+          "runSignal": {
+            "type": "integer"
+          },
+          "durationMs": {
+            "type": "integer"
+          },
+          "timedOut": {
+            "type": "boolean"
+          },
+          "stdout": {
+            "type": "string"
+          },
+          "stderr": {
+            "type": "string"
+          },
+          "sourceCode": {
+            "type": "string",
+            "format": "binary"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "deviceId",
+          "deviceTime",
+          "sourceCode"
+        ]
+      },
+      "SubmissionRequest": {
+        "type": "object",
+        "properties": {
+          "attemptId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "auto": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "attemptId"
+        ]
+      },
+      "Binding": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "deviceId": {
+            "type": "string"
+          },
+          "boundAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "unboundAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "attemptCount": {
+            "type": "integer"
+          },
+          "lastDeviceTime": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "deviceId",
+          "boundAt",
+          "unboundAt",
+          "attemptCount",
+          "lastDeviceTime"
+        ]
+      }
+    },
+    "parameters": {}
+  },
+  "paths": {
+    "/api/setup": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Device bound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request does not match the contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Token is unknown, revoked or exhausted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Device is bound to another student",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/consent": {
+      "get": {
+        "security": [
+          {
+            "deviceToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current consent, or null",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentState"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Device token is missing or not bound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "security": [
+          {
+            "deviceToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Consent recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "consentId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "consentId"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request does not match the contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Device token is missing or not bound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "security": [
+          {
+            "deviceToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Consent revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "revoked": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "revoked"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Device token is missing or not bound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/attempt": {
+      "post": {
+        "security": [
+          {
+            "deviceToken": []
+          },
+          {}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/AttemptRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Attempt stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttemptResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request does not match the contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Device token was supplied but is not bound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Device token does not match the declared device",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Snapshot is too large, or the unbound quota is used up",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unknown assignment or unreadable archive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/run": {
+      "post": {
+        "security": [
+          {
+            "deviceToken": []
+          },
+          {}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/RunRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Run stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request does not match the contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Device token was supplied but is not bound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Device token does not match the declared device",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Snapshot is too large, or the unbound quota is used up",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unknown assignment or unreadable archive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/submission": {
+      "post": {
+        "security": [
+          {
+            "deviceToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmissionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Submission recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "submissionId": {
+                      "type": "string"
+                    },
+                    "submittedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "submissionId",
+                    "submittedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request does not match the contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Device token is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Attempt belongs to another binding",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown attempt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/devices": {
+      "get": {
+        "security": [
+          {
+            "deviceToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bindings for the calling student",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "devices": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Binding"
+                      }
+                    }
+                  },
+                  "required": [
+                    "devices"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Device token is missing or not bound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/devices/{bindingId}": {
+      "delete": {
+        "security": [
+          {
+            "deviceToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "bindingId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Binding closed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "unbound": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "unbound"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Device token is missing or not bound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown binding, or it belongs to another student",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/assignments": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Assignments the client may declare",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "assignments": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "deadline": {
+                            "type": "string",
+                            "nullable": true,
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "deadline"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "assignments"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

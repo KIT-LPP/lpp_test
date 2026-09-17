@@ -7,6 +7,7 @@ from pathlib import Path
 import glob
 import subprocess
 
+from lpp_collector.build import compile_target
 from lpp_collector.config import TARGETPATH, TEST_BASE_DIR
 
 # import pytest
@@ -86,16 +87,8 @@ test_data = sorted(glob.glob(f"{TEST_BASE_DIR}/input01/*.mpl", recursive=True))
 
 def test_compile():
     """指定ディレクトリでコンパイルができるかをテスト"""
-    cwd = os.getcwd()
-    os.chdir(TARGETPATH)
-    if os.path.isfile("Makefile") or os.path.isfile("makefile"):
-        exec_res = command("make")
-    else:
-        exec_res = command(f"gcc -w -o {TARGET} *.c")
-    os.chdir(cwd)
-    exec_res.pop(0)
-    serr = exec_res.pop(0)
-    assert not serr, "Compilation failed."
+    result = compile_target(TARGET, TARGETPATH)
+    assert result.ok, result.message
 
 
 def test_no_param():
