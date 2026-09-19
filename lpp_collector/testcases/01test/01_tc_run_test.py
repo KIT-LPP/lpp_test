@@ -1,94 +1,18 @@
-"""課題1用テスト"""
+"""課題1用テスト
 
-import os
-import sys
+合否の条件は従来のままである。変えたのは、落ちたときに何を見せるか。
+"""
+
 import re
 from pathlib import Path
 import glob
-import subprocess
-import itertools
 import pytest
 
-from lpp_collector.config import TARGETPATH, TEST_BASE_DIR
+from lpp_collector import testkit
+from lpp_collector.config import TEST_BASE_DIR
 
 TARGET = "tc"
 
-
-class ScanError(Exception):
-    """字句解析エラーハンドラ"""
-
-
-def command(cmd):
-    """コマンドの実行"""
-    try:
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            check=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            universal_newlines=True,
-        )
-        #        for line in result.stdout.splitlines():
-        #            yield line
-        return [result.stdout, result.stderr]
-    except subprocess.CalledProcessError:
-        print(f"外部プログラムの実行に失敗しました [{cmd}]", file=sys.stderr)
-        sys.exit(1)
-
-
-def common_task(mpl_file, out_file):
-    """共通して実行するタスク"""
-    try:
-        #        tc = Path(__file__).parent.parent.joinpath("tc")
-        exe = Path(TARGETPATH) / Path(TARGET)
-        exec_res = command(f"{exe} {mpl_file}")
-        out = []
-        sout = exec_res.pop(0)
-        serr = exec_res.pop(0)
-        if serr:
-            raise ScanError(serr)
-        for line in sout.splitlines():
-            if re.search(r"Identifier", line):
-                continue
-            #            if re.search(r'StringLiteral',line):
-            #                continue
-            #            if re.search(r'NumberLiteral',line):
-            #                continue
-            if re.search(r'\s*"\s*\S*\s*"\s*\d+\s*', line):
-                formatted = re.sub(r'\s*"\s*(\S*)\s*"\s*(\d+)\s*', r'"\1"\t\2\n', line)
-                out.append(formatted)
-        out.sort()
-        with open(out_file, mode="w", encoding="utf-8") as fp:
-            for l in out:
-                fp.write(l)
-        return 0
-    except ScanError as exc:
-        expect_err_file = Path(TEST_EXPECT_DIR).joinpath(
-            Path(mpl_file).stem + ".stderr"
-        )
-        is_error_expected = (
-            expect_err_file.exists() and expect_err_file.stat().st_size > 3
-        )
-        if re.search(r"sample0", mpl_file) and is_error_expected:
-            for line in serr.splitlines():
-                out.append(line)
-            with open(out_file, mode="w", encoding="utf-8") as fp:
-                for l in out:
-                    fp.write(l + "\n")
-            return 1
-        raise ScanError("Error occurred while specified testcase is correct") from exc
-    except Exception as err:
-        with open(out_file, mode="w", encoding="utf-8") as fp:
-            print(err, file=fp)
-        raise err
-
-
-# ===================================
-# pytest code
-# ===================================
-
-TEST_RESULT_DIR = f"{TARGETPATH}/test_results"
 TEST_EXPECT_DIR = Path(__file__).parent / Path("test_expects")
 
 test_data = sorted(glob.glob(f"{TEST_BASE_DIR}/input01/*.mpl", recursive=True))
@@ -96,26 +20,81 @@ paramed_test_data = [
     pytest.param(mpl_file, id=Path(mpl_file).name) for mpl_file in test_data
 ]
 
+NOTE = "キーワードと符号の行だけを取り出し、辞書順に並べ替えてから比較しています"
+
+
+def expects_error(mpl_file, stem) -> bool:
+    """エラーが出ることを期待している入力か。
+
+    名前が sample0* で、かつ期待するエラーが用意されているものに限る
+    (従来どおり、中身が 3 バイト以下の .stderr は用意が無いものとみなす)。
+    """
+    expect_err_file = TEST_EXPECT_DIR / (stem + ".stderr")
+    is_error_expected = expect_err_file.exists() and expect_err_file.stat().st_size > 3
+    return bool(re.search(r"sample0", str(mpl_file))) and is_error_expected
+
+
+def normalize(stdout: str):
+    """比較に使う形にそろえる。"""
+    out = []
+    for line in stdout.splitlines():
+        if re.search(r"Identifier", line):
+            continue
+        if re.search(r'\s*"\s*\S*\s*"\s*\d+\s*', line):
+            formatted = re.sub(r'\s*"\s*(\S*)\s*"\s*(\d+)\s*', r'"\1"\t\2\n', line)
+            out.append(formatted)
+    out.sort()
+    return out
+
 
 @pytest.mark.timeout(10)
 @pytest.mark.parametrize(("mpl_file"), paramed_test_data)
 def test_run(mpl_file):
     """準備したテストケースを全て実行する．"""
-    if not Path(TEST_RESULT_DIR).exists():
-        os.mkdir(TEST_RESULT_DIR)
-    out_file = Path(TEST_RESULT_DIR).joinpath(Path(mpl_file).stem + ".out")
-    res = common_task(mpl_file, out_file)
-    if res == 0:
-        expect_file = Path(TEST_EXPECT_DIR).joinpath(Path(mpl_file).stem + ".stdout")
-        with open(out_file, encoding="utf-8") as ofp, open(
-            expect_file, encoding="utf-8"
-        ) as efp:
-            out_cont = ofp.read().splitlines()
-            est_cont = efp.read().splitlines()
-            for out_line, est_line in itertools.zip_longest(
-                out_cont, est_cont, fillvalue=""
-            ):
-                assert out_line == est_line, "Line does not match."
-    else:
-        with open(out_file, encoding="utf-8") as ofp:
-            assert not ofp.read() == "", "Error message should appear."
+    stem = Path(mpl_file).stem
+    out_file = testkit.result_dir() / (stem + ".out")
+
+    executed = testkit.run_target(TARGET, mpl_file)
+    testkit.save_raw(stem, executed)
+
+    if executed.stderr:
+        testkit.save_lines(out_file, executed.stderr.splitlines())
+        testkit.reject_abnormal_exit(
+            executed, input=mpl_file, hint=testkit.rerun_hint(mpl_file)
+        )
+        if not expects_error(mpl_file, stem):
+            head = executed.stderr.strip().splitlines()
+            testkit.fail(
+                "unexpected_error",
+                input=mpl_file,
+                fields=[
+                    ("あなた", head[0] if head else ""),
+                    ("期待", "この入力は正しいので、字句の表を出力する"),
+                ],
+                executed=executed,
+                hint=testkit.rerun_hint(mpl_file),
+            )
+        if out_file.read_text(encoding="utf-8") == "":
+            testkit.fail(
+                "missing_error",
+                input=mpl_file,
+                fields=[("期待", "誤りのある行を知らせるエラーを出す")],
+                executed=executed,
+                hint=testkit.rerun_hint(mpl_file),
+            )
+        return
+
+    # 従来と同じ中身を書き、書いたものを読み直して比べる
+    testkit.save_text(out_file, "".join(normalize(executed.stdout)))
+    expect_file = TEST_EXPECT_DIR / (stem + ".stdout")
+    expected = testkit.read_text_or_fail(expect_file, input=mpl_file)
+    testkit.save_expected(stem, expect_file)
+    testkit.compare_or_fail(
+        out_file.read_text(encoding="utf-8").splitlines(),
+        expected.splitlines(),
+        input=mpl_file,
+        stem=stem,
+        executed=executed,
+        notes=[NOTE],
+        hint=testkit.rerun_hint(mpl_file),
+    )

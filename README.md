@@ -112,6 +112,51 @@ lpptest 04test
 * 00_mpplc_compile_test.py - コンパイルできるか，引数の有無での動作，無効なファイル名を与えた動作
 * 01_mpplc_c2c2_run_test.py - コンパイルしたアセンブリプログラムがc2c2で実行できるかを見る．
 
+### 結果の見方
+
+実行の最後に、まとめが出ます。
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 03test の結果    27 / 58 通過    前回から +3 / -0
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✓ 通過                           27 件
+  ✗ 異常終了しました               11 件  sample11p.mpl, sample11pp.mpl ほか 9 件
+  ✗ 出力が期待と違います           20 件  sample11.mpl, sample13.mpl ほか 18 件
+
+ ── まず見るとよいもの ────────────────────────────────────────────
+
+ [1] sample11p.mpl  異常終了しました
+      入力      : /lpp_test/input01/sample11p.mpl
+      あなた    : Segmentation fault (core dumped)
+      終了      : シグナル SIGSEGV で停止
+      次の一手  : lpprun /lpp_test/input01/sample11p.mpl
+```
+
+失敗は分類ごとにまとめ、**先に直すとよいものから**並べます。詳しく出るのは
+分類ごとに 1 件だけです。コンパイルが通っていないときは、それだけを見せます
+(実行のテストは同じ理由で落ちるので、1 行にまとめます)。
+
+全部を pytest の形で見たいときは `--full` を付けてください。
+
+```bash
+lpptest 03test --full            # 失敗したテストをすべて詳しく出す
+lpptest 03test all -k sample11   # 1 件だけ走らせる (提出の確認は出ません)
+```
+
+テストが出力を突き合わせたものは、課題のディレクトリの `test_results/` に
+残ります。
+
+| ファイル | 中身 |
+| --- | --- |
+| `<入力>.out` | 比較に使った**あなたの**出力 (空白を潰すなどの整形の後) |
+| `<入力>.expected` | 比較に使った期待値 |
+| `<入力>.raw.stdout` / `.raw.stderr` | 整形する前の、プログラムが実際に出したもの |
+
+```bash
+diff test_results/sample11.out test_results/sample11.expected
+```
+
 ## 提出 (`lppsubmit`)
 
 テストの結果とソースコードは毎回サーバへ送られますが、それだけでは提出には
@@ -220,6 +265,61 @@ bun run scripts/issue-tokens.ts roster.csv --commit --out tokens.tsv
 # クライアント側
 LPP_TEST_SERVER=http://127.0.0.1:13459 LPP_TEST_TOKEN=... \
   uv run pytest tests -c tests/pytest.ini
+```
+
+### テストケースの書き方 (`testkit`)
+
+課題のテスト (`lpp_collector/testcases/`) は `lpp_collector/testkit.py` を通して
+プログラムを動かし、`testkit.fail()` で落とします。`command()` と
+`common_task()` を課題ごとに複製するのはやめました (11 ファイルにあり、
+どれも終了コードを捨てていました)。
+
+```python
+executed = testkit.run_target("cr", mpl_file)   # 終了コードごと持ち帰る
+testkit.save_raw(stem, executed)                # 生の出力を残す
+testkit.compare_or_fail(lines, expected, input=mpl_file, stem=stem)
+```
+
+`testkit.fail()` は `pytest.fail(..., pytrace=False)` を呼びます。テストの
+仕組み側の traceback は学生の助けにならないので出しません。組み立てた日本語の
+説明がそのまま画面に出て、サーバにも `longrepr` として残ります。
+
+分類の一覧は `testkit.KIND_TITLES`、表示の順序は
+`student_report.KIND_ORDER` が単一の情報源です。先に直すと他がまとめて
+動くものから並べています。
+
+判定に関わる変更をしたときは、改修の前後で同じ課題ディレクトリに対して
+`pytest -q --tb=no -rA` を走らせ、`PASSED`/`FAILED` の一覧を突き合わせ、
+**変わった分がすべて意図したものであること**を確かめます。
+
+### 判定の規則
+
+合否を左右する判断のうち、間違えやすいものをここに書きます。
+
+**終わり方そのものが異常なものは通しません** (`testkit.reject_abnormal_exit`)。
+エラーを期待する入力 (`sample0*`) の判定は「標準エラー出力に何か出たか」
+しか見ていなかったので、シェルが書いた `Segmentation fault` や
+`./tc: not found` がエラーの報告として数えられ、**落ちたプログラムや、
+実行ファイルが 1 つも無い提出が通って**いました。異常終了・時間切れ・
+実行ファイルなしは、エラーが出ていても落とします。
+
+**エラーの行番号は、パスの中の数字から読みません**
+(`testkit.error_line_number`)。従来は出力全体の最初の数字を行番号と
+みなしていたので、入力のパスを表示するプログラムでは、テスト環境のパスに
+入っている `python3` の `3` が拾われ、**どんな入力でも「3 行目」と報告した
+ことに**なっていました (3 行目にエラーのある課題だけが通る)。語ごとに見て
+パスらしい語は飛ばし、`file.mpl:12` の形で付けているものはその数字を拾います。
+
+前後 1 行までの許容は従来どおりです。
+
+課題4 のテストは c2c2 (`/casljs`) を呼びます。手元で確かめるときは
+`LPP_CASLJS_DIR` で場所を差し替えられます (テスト環境では使いません)。
+
+```bash
+cd casljs && npm ci
+cd <課題4のディレクトリ>
+LPP_CASLJS_DIR=<このレポジトリ>/casljs \
+  lpptest --run-pytest 04test
 ```
 
 ### 実行の記録

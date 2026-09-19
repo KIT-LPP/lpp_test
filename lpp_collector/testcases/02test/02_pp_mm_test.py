@@ -1,85 +1,18 @@
-"""課題2用メタモーフィックテスト"""
+"""課題2用メタモーフィックテスト
 
-# 課題2では，1回実行した出力を再度入力として実行させても
-# 全く同一の出力が得られるべき
-import os
-import glob
-import subprocess
-import sys
-import re
+自分自身が生成したソースコードを読み込ませると、同じものが出てくるはず。
+合否の条件は従来のままである。変えたのは、落ちたときに何を見せるか。
+"""
+
 from pathlib import Path
-import itertools
+import glob
 import pytest
 
-from lpp_collector.config import TARGETPATH, TEST_BASE_DIR
-
+from lpp_collector import testkit
+from lpp_collector.config import TEST_BASE_DIR
 
 TARGET = "pp"
 
-
-class ParseError(Exception):
-    """構文エラーハンドラ"""
-
-
-def command(cmd):
-    """コマンドの実行"""
-    try:
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            check=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            universal_newlines=True,
-        )
-        #        for line in result.stdout.splitlines():
-        #            yield line
-        return [result.stdout, result.stderr]
-    except subprocess.CalledProcessError:
-        print(f"外部プログラムの実行に失敗しました [{cmd}]", file=sys.stderr)
-        sys.exit(1)
-
-
-def common_task(mpl_file, out_file):
-    """共通して実行するタスク"""
-    try:
-        exe = Path(TARGETPATH) / Path(TARGET)
-        exec_res = command(f"{exe} {mpl_file}")
-        out = []
-        sout = exec_res.pop(0)
-        serr = exec_res.pop(0)
-        if serr:
-            raise ParseError(serr)
-        for line in sout.splitlines():
-            out.append(line)
-        with open(out_file, mode="w", encoding="utf-8") as fp:
-            for l in out:
-                fp.write(l + "\n")
-        return 0
-    except ParseError as exc:
-        if re.search(r"sample0", mpl_file):
-            for line in serr.splitlines():
-                out.append(line)
-            with open(out_file, mode="w", encoding="utf-8") as fp:
-                for l in out:
-                    fp.write(l + "\n")
-            return 1
-        raise ParseError(serr) from exc
-    except Exception as err:
-        with open(out_file, mode="w", encoding="utf-8") as fp:
-            print(err, file=fp)
-        raise err
-
-
-# ===================================
-# pytest code
-# ===================================
-
-TEST_RESULT_DIR = f"{TARGETPATH}/test_results"
-TEST_EXPECT_DIR = Path(__file__).parent / Path("test_expects")
-
-# 全てのテストデータ
-test_data = sorted(glob.glob(f"{TEST_BASE_DIR}/input0[12]/*.mpl", recursive=True))
 # エラーが出ないことが期待されるデータのみ
 test_valid_data = sorted(
     glob.glob(f"{TEST_BASE_DIR}/input0[12]/sample[!0]*.mpl", recursive=True)
@@ -90,33 +23,64 @@ paramed_test_data = [
 ]
 
 
+def analyze(source):
+    """pp を 1 回動かす。返り値は (実行の記録, 出力の行, エラーか)。"""
+    executed = testkit.run_target(TARGET, source)
+    if executed.stderr:
+        return executed, executed.stderr.splitlines(), True
+    return executed, executed.stdout.splitlines(), False
+
+
+def _broken(mpl_file, executed, stage):
+    head = executed.stderr.strip().splitlines()
+    testkit.fail(
+        "idempotency",
+        input=mpl_file,
+        fields=[
+            ("どこで", stage),
+            ("あなた", head[0] if head else "(何も出力されませんでした)"),
+            ("期待", "整形した結果をもう一度 pp に通しても、同じものが出る"),
+        ],
+        executed=executed,
+        hint=testkit.rerun_hint(mpl_file),
+    )
+
+
 @pytest.mark.timeout(10)
 @pytest.mark.parametrize(("mpl_file"), paramed_test_data)
 def test_idempotency(mpl_file):
     """メタモーフィックテストによって，冪等性を確認"""
-    # 自分自身が生成したソースコードを読み込ませると同じファイルを生成するはず．
-    if not Path(TEST_RESULT_DIR).exists():
-        os.mkdir(TEST_RESULT_DIR)
-    out_file = Path(TEST_RESULT_DIR).joinpath(Path(mpl_file).stem + ".out")
+    stem = Path(mpl_file).stem
+    out_file = testkit.result_dir() / (stem + ".out")
+    out2_file = testkit.result_dir() / (stem + ".out2")
+
     # 1回目の実行
-    res = common_task(mpl_file, out_file)
-    if res == 0:
-        out2_file = Path(TEST_RESULT_DIR).joinpath(Path(mpl_file).stem + ".out2")
-        # 2回目の実行
-        res1 = common_task(out_file, out2_file)
-        if res1 == 0:
-            with open(out2_file, encoding="utf-8") as ofp2, open(
-                out_file, encoding="utf-8"
-            ) as ofp1:
-                out_cont = ofp2.read().splitlines()
-                est_cont = ofp1.read().splitlines()
-            for out_line, est_line in itertools.zip_longest(
-                out_cont, est_cont, fillvalue=""
-            ):
-                assert out_line == est_line, "Line does not match."
-        else:
-            # 実行結果がエラーになるのであれば，それはダメ
-            assert False, "Pretty print idempotency is broken."
-    else:
-        # エラーになるわけがないテストデータのみを与えるので，ここは無条件にダメ
-        assert False, "Pretty print idempotency is broken."
+    executed, lines, errored = analyze(mpl_file)
+    testkit.save_lines(out_file, lines)
+    if errored:
+        # エラーになるわけがないテストデータのみを与えるので、ここはダメ
+        _broken(mpl_file, executed, "1 回目 (元のファイル)")
+
+    # 2回目の実行。1 回目の出力をそのまま読ませる
+    executed2, lines2, errored2 = analyze(out_file)
+    testkit.save_lines(out2_file, lines2)
+    if errored2:
+        # 自分が出したものを自分で読めない
+        _broken(mpl_file, executed2, "2 回目 (自分が整形したファイル)")
+
+    testkit.compare_or_fail(
+        lines2,
+        lines,
+        input=mpl_file,
+        executed=executed2,
+        kind="idempotency",
+        actual_label="2 回目",
+        expected_label="1 回目",
+        notes=[
+            "整形した結果をもう一度 pp に通すと、同じものが出てこなければ"
+            "なりません",
+            f"比べたもの: {testkit.short_path(out2_file)} と "
+            f"{testkit.short_path(out_file)}",
+        ],
+        hint=testkit.rerun_hint(mpl_file),
+    )
