@@ -37,6 +37,11 @@ base_parser.add_argument(
     help="Update Docker image and exit",
 )
 base_parser.add_argument(
+    "--full",
+    action="store_true",
+    help="失敗したテストを pytest の既定の形でも全部出す",
+)
+base_parser.add_argument(
     "testsuite", choices=all_testsuite_list, help="Specify testsuite"
 )
 
@@ -90,6 +95,17 @@ def run_pytest(args):
     # Sort testcases by name
     testcase_paths = sorted([str(testcase.absolute()) for testcase in testcases])
 
+    # 学生が打つのは `--full` で、pytest 側の名前は `--lpp-full`。
+    # argparse の REMAINDER は最初の余りから後ろを丸ごと持っていくので、
+    # 位置によっては `--full` も `all` もそこへ落ちる。どちらもこちらの
+    # 語彙であって pytest に渡すものではない
+    pytest_args = [arg for arg in args.pytest_args if arg != "--full"]
+    full = args.full or len(pytest_args) != len(args.pytest_args)
+    if pytest_args and pytest_args[0] == "all":
+        pytest_args.pop(0)
+    if full:
+        pytest_args.append("--lpp-full")
+
     # print(f"Running pytest with {testcase_paths}")
 
     pwd = os.getcwd()
@@ -105,7 +121,8 @@ def run_pytest(args):
     subprocess.call(
         [
             "pytest",
-            *args.pytest_args,
+            "--no-header",
+            *pytest_args,
             *testcase_paths,
         ],
         cwd=TEST_BASE_DIR,
@@ -116,7 +133,7 @@ def run_pytest(args):
     # 控えの all_passed を唯一の根拠にする。ただし一部だけを走らせたときは
     # 尋ねない。集めた結果は走らせた分のものなので、コンパイルのテストだけを
     # 通しても「すべてのテストが通りました」になってしまう
-    if is_full_suite_run(args.testcases, args.pytest_args):
+    if is_full_suite_run(args.testcases, pytest_args):
         try:
             offer_after_test(session_id)
         except Exception as e:  # noqa: BLE001 - テストの結果は出したまま理由を見せる

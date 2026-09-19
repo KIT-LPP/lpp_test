@@ -1,151 +1,28 @@
-"""課題4用コンパイル・実行テスト"""
+"""課題4用コンパイル・実行テスト
 
+合否の条件は従来のままである。変えたのは、落ちたときに何を見せるか。
+"""
+
+import json
 import os
 import re
-import json
 from pathlib import Path
 import glob
-import subprocess
-import itertools
 import pytest
 
-from lpp_collector.config import TARGETPATH, TEST_BASE_DIR
-
+from lpp_collector import testkit
+from lpp_collector.config import TEST_BASE_DIR
 
 TARGET = "mpplc"
 
-
-class CompileError(Exception):
-    """コンパイルエラーハンドラ"""
-
-
-class Casl2AssembleError(Exception):
-    """アセンブルエラーハンドラ"""
-
-
-class Comet2ExecutionError(Exception):
-    """エミュレータ実行エラーハンドラ"""
-
-
-def command(cmd):
-    """コマンドの実行"""
-    try:
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            check=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            universal_newlines=True,
-        )
-        return [result.stdout, result.stderr]
-    except subprocess.CalledProcessError as exc:
-        raise Comet2ExecutionError("Failed to execute COMET II") from exc
-
-
-def interactive_command(cmd):
-    """対話コマンド実行"""
-    try:
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            universal_newlines=True,
-        )
-        for line in result.stdout.splitlines():
-            yield line
-    except subprocess.CalledProcessError as exc:
-        #        print(f'外部プログラムの実行に失敗しました [{cmd}]', file=sys.stderr)
-        raise Comet2ExecutionError("Failed to interactively execute COMET II") from exc
-
-
-def compile_task(mpl_file, out_file):
-    """コンパイルタスク"""
-    try:
-        # mpplc = Path(__file__).parent.parent.joinpath("mpplc")
-        exe = Path(TARGETPATH) / Path(TARGET)
-        exec_res = command(f"{exe} {mpl_file}")
-
-        cslfile = None
-        out = []
-        exec_res.pop(0)
-        serr = exec_res.pop(0)
-        if serr:
-            raise CompileError(serr)
-
-        csl_filename = Path(mpl_file).stem + ".csl"
-        csl_candidates = [
-            Path(TEST_BASE_DIR) / Path(csl_filename),
-            Path(mpl_file).parent / Path(csl_filename),
-        ]
-        cslfile = next((c for c in csl_candidates if c.exists()), None)
-        if cslfile is None:
-            raise FileNotFoundError(".csl file not found.")
-
-        casl2dir = Path(__file__).parent / Path(CASL2_FILE_DIR)
-        casl2dir.mkdir(exist_ok=True)
-        casl2file = casl2dir / cslfile.name
-        cslfile.rename(casl2file)
-        return 0
-    except CompileError as exc:
-        if re.search(r"sample0", mpl_file):
-            out = []
-            for line in serr.splitlines():
-                out.append(line)
-            with open(out_file, mode="w", encoding="utf-8") as fp:
-                for l in out:
-                    fp.write(l + "\n")
-            if cslfile is not None:
-                os.remove(cslfile)
-            return 1
-        raise exc
-    except Exception as err:
-        with open(out_file, mode="w", encoding="utf-8") as fp:
-            print(err, file=fp)
-        raise err
-
-
-def execution_task(casl2_file, out_file):
-    """c2c2実行タスク"""
-    try:
-        c2c2 = Path("/casljs") / Path("c2c2.js")
-        assembler_text = interactive_command(f"node {c2c2} -n -c -a {casl2_file}")
-        if "DEFINED SYMBOLS" not in assembler_text:
-            raise Casl2AssembleError("Failed to compile")
-        input_path = Path(__file__).parent / Path("input.json")
-        with open(input_path, encoding="utf-8") as fp:
-            inp = json.load(fp)
-        inputparams = ""
-        if Path(casl2_file).name in inp.keys():
-            inputparams = " ".join(list(inp[Path(casl2_file).name]))
-        terminal_text = interactive_command(
-            f"node {c2c2} -n -q -r {casl2_file} {inputparams}"
-        )
-        with open(out_file, mode="w", encoding="utf-8") as fp:
-            for line in terminal_text:
-                if (line.startswith("IN>") or line.startswith("OUT>")):
-                    fp.write(line + "\n")
-    except Casl2AssembleError as exc:
-        with open(out_file, mode="w", encoding="utf-8") as fp:
-            fp.write("============ASSEMBLE ERROR==============\n")
-            for line in assembler_text:
-                fp.write(line + "\n")
-        raise Casl2AssembleError("Assemble Error") from exc
-    except Exception as err:
-        with open(out_file, mode="w", encoding="utf-8") as fp:
-            print(err, file=fp)
-        raise err
-
-
-# ===================================
-# pytest code
-# ===================================
-
-TEST_RESULT_DIR = f"{TARGETPATH}/test_results"
 TEST_EXPECT_DIR = Path(__file__).parent / Path("test_expects")
 CASL2_FILE_DIR = "casl2"
+# テスト環境では /casljs に入っている。手元で確かめるときだけ差し替える
+C2C2 = Path(os.environ.get("LPP_CASLJS_DIR", "/casljs")) / Path("c2c2.js")
+
+# @pytest.mark.timeout(15) の下で mpplc と node を 2 回動かす。
+# それぞれの上限は、合わせてもマークを超えない値にする
+STEP_TIMEOUT = 6.0
 
 test_data = sorted(glob.glob(f"{TEST_BASE_DIR}/input*/*.mpl", recursive=True))
 paramed_test_data = [
@@ -153,43 +30,172 @@ paramed_test_data = [
 ]
 
 
+def expects_error(mpl_file) -> bool:
+    """エラーが出ることを期待している入力か (sample0* がそれ)。"""
+    return bool(re.search(r"sample0", str(mpl_file)))
+
+
+def find_csl(mpl_file):
+    """mpplc が吐いた .csl を探す。置き場所は課題の実装次第で 2 通りある。"""
+    csl_filename = Path(mpl_file).stem + ".csl"
+    candidates = [
+        Path(TEST_BASE_DIR) / Path(csl_filename),
+        Path(mpl_file).parent / Path(csl_filename),
+    ]
+    return next((c for c in candidates if c.exists()), None)
+
+
+def compile_task(mpl_file, out_file):
+    """mpplc を動かして .csl を取り出す。エラーを期待する入力なら 1 を返す。"""
+    executed = testkit.run_target(TARGET, mpl_file, timeout=STEP_TIMEOUT)
+
+    if executed.stderr:
+        if not expects_error(mpl_file):
+            head = executed.stderr.strip().splitlines()
+            testkit.fail(
+                "unexpected_error",
+                input=mpl_file,
+                fields=[
+                    ("あなた", head[0] if head else ""),
+                    ("期待", "この入力は正しいので、CASL2 を出力する"),
+                ],
+                executed=executed,
+                hint=testkit.rerun_hint(mpl_file),
+            )
+        testkit.save_lines(out_file, executed.stderr.splitlines())
+        return 1, executed
+
+    cslfile = find_csl(mpl_file)
+    if cslfile is None:
+        testkit.fail(
+            "missing_csl",
+            input=mpl_file,
+            fields=[
+                ("探した場所", f"{TEST_BASE_DIR} と {Path(mpl_file).parent}"),
+                ("期待", f"{Path(mpl_file).stem}.csl を作る"),
+            ],
+            executed=executed,
+            hint=testkit.rerun_hint(mpl_file),
+        )
+
+    casl2dir = Path(__file__).parent / Path(CASL2_FILE_DIR)
+    casl2dir.mkdir(exist_ok=True)
+    cslfile.rename(casl2dir / cslfile.name)
+    return 0, executed
+
+
+def node_lines(command, kind, mpl_file, note=None):
+    """c2c2 を動かして出力の行を返す。0 以外で終わったらそこで落とす。"""
+    executed = testkit.run(command, timeout=STEP_TIMEOUT)
+    if executed.returncode != 0:
+        head = (executed.stderr or executed.stdout).strip().splitlines()
+        testkit.fail(
+            kind,
+            input=mpl_file,
+            fields=[
+                ("実行", command),
+                ("あなた", head[0] if head else "(出力なし)"),
+            ],
+            notes=[note] if note else None,
+            executed=executed,
+        )
+    return executed.stdout.splitlines(), executed
+
+
+def execution_task(casl2_file, out_file, mpl_file):
+    """c2c2 でアセンブルして実行する。"""
+    assembler_text, _ = node_lines(
+        f"node {C2C2} -n -c -a {casl2_file}",
+        "assemble",
+        mpl_file,
+    )
+    if "DEFINED SYMBOLS" not in assembler_text:
+        testkit.save_lines(
+            out_file, ["============ASSEMBLE ERROR=============="] + assembler_text
+        )
+        testkit.fail(
+            "assemble",
+            input=mpl_file,
+            fields=[
+                ("あなた", assembler_text[-1] if assembler_text else "(出力なし)"),
+                ("期待", "アセンブルが通り、シンボルの表が出る"),
+                ("出力", testkit.short_path(out_file)),
+            ],
+            notes=["出力した CASL2 が文法として通っていません"],
+        )
+
+    input_path = Path(__file__).parent / Path("input.json")
+    with open(input_path, encoding="utf-8") as fp:
+        inp = json.load(fp)
+    inputparams = ""
+    if Path(casl2_file).name in inp.keys():
+        inputparams = " ".join(list(inp[Path(casl2_file).name]))
+
+    terminal_text, _ = node_lines(
+        f"node {C2C2} -n -q -r {casl2_file} {inputparams}",
+        "comet2",
+        mpl_file,
+        note="アセンブルは通りましたが、実行が最後まで進みませんでした",
+    )
+    lines = [
+        line
+        for line in terminal_text
+        if line.startswith("IN>") or line.startswith("OUT>")
+    ]
+    testkit.save_lines(out_file, lines)
+    return lines
+
+
 @pytest.mark.timeout(15)
 @pytest.mark.parametrize(("mpl_file"), paramed_test_data)
 def test_mpplc_run(mpl_file):
     """mpplcを実行する"""
-    if not Path(TEST_RESULT_DIR).exists():
-        os.mkdir(TEST_RESULT_DIR)
-    if not Path(CASL2_FILE_DIR).exists():
-        os.mkdir(CASL2_FILE_DIR)
-    out_file = Path(TEST_RESULT_DIR).joinpath(Path(mpl_file).name + ".out")
-    res = compile_task(mpl_file, out_file)
+    name = Path(mpl_file).name
+    out_file = testkit.result_dir() / (name + ".out")
+
+    res, executed = compile_task(mpl_file, out_file)
+
     if res == 0:
         casl2file = (
             Path(__file__).parent
             / Path(CASL2_FILE_DIR)
             / Path(Path(mpl_file).stem + ".csl")
         )
-        assert os.path.getsize(casl2file) > 0, "No CASL code generated."
-        out_file = Path(TEST_RESULT_DIR) / Path(Path(casl2file).name + ".out")
-        execution_task(casl2file, out_file)
-        expect_file = Path(TEST_EXPECT_DIR) / Path(Path(casl2file).name + ".out")
-        with open(out_file, encoding="utf-8") as ofp, open(
-            expect_file, encoding="utf-8"
-        ) as efp:
-            out_cont = ofp.read().splitlines()
-            est_cont = efp.read().splitlines()
-            for out_line, est_line in itertools.zip_longest(
-                out_cont, est_cont, fillvalue=""
-            ):
-                assert out_line == est_line, "Line does not match."
-    else:
-        expect_file = Path(TEST_EXPECT_DIR) / Path(Path(mpl_file).name + ".stderr")
-        with open(out_file, encoding="utf-8") as ofp, open(
-            expect_file, encoding="utf-8"
-        ) as efp:
-            try:
-                o = int(re.search(r"(\d+)", ofp.read()).group())
-                e = int(re.search(r"(\d+)", efp.read()).group())
-                assert o - 1 <= e <= o + 1, "Line number of error message is different."
-            except IndexError:
-                assert False, "Line number does not appear in error message."
+        if os.path.getsize(casl2file) == 0:
+            testkit.fail(
+                "missing_csl",
+                input=mpl_file,
+                fields=[
+                    ("あなた", f"{casl2file.name} が空です"),
+                    ("期待", "CASL2 のコードを書き出す"),
+                ],
+                executed=executed,
+                hint=testkit.rerun_hint(mpl_file),
+            )
+        stem = casl2file.name
+        out_file = testkit.result_dir() / (stem + ".out")
+        lines = execution_task(casl2file, out_file, mpl_file)
+
+        expect_file = TEST_EXPECT_DIR / (stem + ".out")
+        expected = testkit.read_text_or_fail(expect_file, input=mpl_file)
+        testkit.save_expected(stem, expect_file)
+        testkit.compare_or_fail(
+            lines,
+            expected.splitlines(),
+            input=mpl_file,
+            stem=stem,
+            notes=["COMET II で動かしたときの入出力 (IN>/OUT>) を比べています"],
+            hint=testkit.rerun_hint(mpl_file),
+        )
+        return
+
+    expect_file = TEST_EXPECT_DIR / (name + ".stderr")
+    expected = testkit.read_text_or_fail(expect_file, input=mpl_file)
+    testkit.save_expected(name, expect_file)
+    testkit.compare_error_line_or_fail(
+        out_file.read_text(encoding="utf-8"),
+        expected,
+        input=mpl_file,
+        executed=executed,
+        hint=testkit.rerun_hint(mpl_file),
+    )
