@@ -17,6 +17,7 @@ def test_compile():
 def test_no_param():
     """引数を付けずに実行するテスト"""
     executed = testkit.run_target(TARGET)
+    testkit.reject_abnormal_exit(executed)
     if not executed.stderr:
         testkit.fail(
             "cli",
@@ -32,6 +33,7 @@ def test_no_param():
 def test_not_valid_file():
     """存在しないファイルを引数にした場合のテスト"""
     executed = testkit.run_target(TARGET, "hogehoge")
+    testkit.reject_abnormal_exit(executed)
     if not executed.stderr:
         testkit.fail(
             "cli",
@@ -62,25 +64,42 @@ def test_absolute_path_file():
 
 
 def test_dotted_path_file():
-    """ドットを含むパスでファイルを指定した場合のテスト"""
-    shutil.copy(f"{TEST_BASE_DIR}/input01/sample12.mpl", "/tmp/test.success.mpl")
-    executed = testkit.run_target(TARGET, "/tmp/sample12.mpl")
-    if os.path.isfile("./test.success.mpl") or os.path.isfile("/tmp/test.success.mpl"):
+    """ドットを含むパスでファイルを指定した場合のテスト
+
+    従来この判定は、直前に自分でコピーした `test.success.mpl` があるかを
+    見ており、しかも mpplc には別のファイル (`/tmp/sample12.mpl`) を
+    渡していた。いつでも通る判定になっていたので、`test.success.mpl` を
+    渡して `test.success.csl` ができるかを見るように直した。
+    """
+    source = "/tmp/test.success.mpl"
+    shutil.copy(f"{TEST_BASE_DIR}/input01/sample12.mpl", source)
+    # 前の実行の名残と取り違えない
+    made = ["./test.success.csl", "/tmp/test.success.csl", "./test.csl", "/tmp/test.csl"]
+    for path in made:
+        if os.path.isfile(path):
+            os.remove(path)
+
+    executed = testkit.run_target(TARGET, source)
+
+    if os.path.isfile("./test.success.csl") or os.path.isfile("/tmp/test.success.csl"):
         return
-    if os.path.isfile("/tmp/test.csl") or os.path.isfile("./test.csl"):
+    if os.path.isfile("./test.csl") or os.path.isfile("/tmp/test.csl"):
         testkit.fail(
             "cli",
             fields=[
+                ("実行", f"./{TARGET} {source}"),
                 ("あなた", "test.csl が作られました"),
-                ("期待", "test.success.csl (最後のドットだけを拡張子とみなす)"),
+                ("期待", "test.success.csl (最後のドットから後ろだけが拡張子)"),
             ],
+            notes=["ファイル名の最初のドットで切っていないか確かめてください"],
             executed=executed,
         )
     testkit.fail(
         "cli",
         fields=[
-            ("あなた", "ファイル名を指定した出力がありません"),
-            ("期待", "ドットを含む名前でも読めて、.csl を作る"),
+            ("実行", f"./{TARGET} {source}"),
+            ("あなた", ".csl がどこにも作られませんでした"),
+            ("期待", "ドットを含む名前でも読めて、test.success.csl を作る"),
         ],
         executed=executed,
     )

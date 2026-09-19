@@ -72,6 +72,10 @@ def test_cr_run(mpl_file):
         )
         return
 
+    testkit.reject_abnormal_exit(
+        executed, input=mpl_file, hint=testkit.rerun_hint(mpl_file)
+    )
+
     if not expects_error(mpl_file):
         head = executed.stderr.strip().splitlines()
         testkit.fail(

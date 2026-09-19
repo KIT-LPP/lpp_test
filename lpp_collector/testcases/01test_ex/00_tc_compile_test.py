@@ -13,6 +13,7 @@ def test_compile():
 def test_no_param():
     """引数を付けずに実行するテスト"""
     executed = testkit.run_target(TARGET)
+    testkit.reject_abnormal_exit(executed)
     if not executed.stderr:
         testkit.fail(
             "cli",
@@ -28,6 +29,7 @@ def test_no_param():
 def test_not_valid_file():
     """存在しないファイルを引数にした場合のテスト"""
     executed = testkit.run_target(TARGET, "hogehoge")
+    testkit.reject_abnormal_exit(executed)
     if not executed.stderr:
         testkit.fail(
             "cli",

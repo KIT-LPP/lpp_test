@@ -121,6 +121,28 @@ def test_output_that_is_not_utf8_is_its_own_kind():
 
 
 # ---------------------------------------------------------------------------
+# 終わり方そのものが異常なもの
+# ---------------------------------------------------------------------------
+def test_an_error_report_from_a_normal_exit_is_allowed():
+    testkit.reject_abnormal_exit(testkit.Run("./cr x", 1, "", "Line: 3 ERROR"))
+
+
+def test_a_crash_is_not_accepted_as_an_error_report():
+    """シェルの "Segmentation fault" がエラーの報告として通っていた。"""
+    executed = testkit.Run("./tc x", 139, "", "Segmentation fault (core dumped)")
+    with pytest.raises(Failed):
+        testkit.reject_abnormal_exit(executed)
+    assert testkit.take_last_failure()["kind"] == "crash"
+
+
+def test_a_missing_executable_is_not_accepted_as_an_error_report():
+    executed = testkit.Run("./tc x", 127, "", "/bin/sh: 1: ./tc: not found")
+    with pytest.raises(Failed):
+        testkit.reject_abnormal_exit(executed)
+    assert testkit.take_last_failure()["kind"] == "not_found"
+
+
+# ---------------------------------------------------------------------------
 # 比較
 # ---------------------------------------------------------------------------
 def test_the_first_differing_line_is_found_with_its_position():
@@ -158,6 +180,24 @@ def test_a_mismatch_says_where_and_what(tmp_path, monkeypatch):
 def test_the_error_line_is_allowed_to_be_off_by_one():
     testkit.compare_error_line_or_fail("LINE 12 ERROR", "11")
     testkit.compare_error_line_or_fail("LINE 12 ERROR", "13")
+
+
+def test_the_line_number_is_not_taken_from_a_path():
+    """テスト環境のパスには python3 が入る。どの入力でも「3 行目」になる。"""
+    text = "--- /usr/lib/python3/dist-packages/lpp_collector/testcases/input01/x.mpl\nERROR: bad"
+    assert testkit.error_line_number(text) is None
+
+
+def test_a_line_number_attached_to_a_file_name_is_read():
+    """gcc のように `file.c:12:` と書くのは行番号の報告である。"""
+    assert testkit.error_line_number("/lpp_test/input01/sample013.mpl:4") == 4
+    assert testkit.error_line_number("sample013.mpl:4: ERROR") == 4
+
+
+def test_the_line_number_comes_from_the_message():
+    assert testkit.error_line_number("Line:    3 ERROR: number is too large") == 3
+    assert testkit.error_line_number("LINE\t12\nERROR: type is not same") == 12
+    assert testkit.error_line_number("Line 3: too big number") == 3
 
 
 def test_a_far_off_error_line_fails():

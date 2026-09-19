@@ -50,6 +50,9 @@ def compile_task(mpl_file, out_file):
     executed = testkit.run_target(TARGET, mpl_file, timeout=STEP_TIMEOUT)
 
     if executed.stderr:
+        testkit.reject_abnormal_exit(
+            executed, input=mpl_file, hint=testkit.rerun_hint(mpl_file)
+        )
         if not expects_error(mpl_file):
             head = executed.stderr.strip().splitlines()
             testkit.fail(

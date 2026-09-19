@@ -59,6 +59,9 @@ def test_run(mpl_file):
 
     if executed.stderr:
         testkit.save_lines(out_file, executed.stderr.splitlines())
+        testkit.reject_abnormal_exit(
+            executed, input=mpl_file, hint=testkit.rerun_hint(mpl_file)
+        )
         if not expects_error(mpl_file, stem):
             head = executed.stderr.strip().splitlines()
             testkit.fail(

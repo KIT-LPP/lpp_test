@@ -410,6 +410,35 @@ def first_mismatch(
     return None
 
 
+def reject_abnormal_exit(
+    executed: Run, *, input: Any = None, hint: Optional[str] = None
+) -> None:
+    """終わり方そのものが異常なものは、エラーが出ていても通さない。
+
+    エラーを期待する入力 (`sample0*`) の判定は「標準エラー出力に何か出たか」
+    だけを見ていた。シェルが書いた "Segmentation fault" もエラーの報告と
+    数えられるので、**落ちた**プログラムが通っていた。実行ファイルが 1 つも
+    無くても、`not found` がエラーの報告として通っていた。
+    """
+    if executed.kind is None:
+        return
+
+    head = executed.stderr.strip().splitlines()
+    fields: List[Tuple[str, Any]] = []
+    if executed.kind != "not_found" and head:
+        fields.append(("あなた", head[0]))
+    fail(
+        executed.kind,
+        input=input,
+        fields=fields,
+        notes=["誤りを報告するはずの入力でも、プログラム自体が落ちてはいけません"]
+        if executed.kind == "crash"
+        else None,
+        executed=executed,
+        hint=hint,
+    )
+
+
 def _shown(value) -> str:
     if value is None:
         return "(行がありません)"
@@ -463,10 +492,33 @@ def compare_or_fail(
     )
 
 
+# ファイル名やパスらしい語。この中の数字を行番号と読んではならない
+_PATHISH = re.compile(r"/|\.(?:mpl|csl|c|h)(?::|$)")
+# gcc のように `file.c:12:` と付けているときの行番号
+_LINE_SUFFIX = re.compile(r":(\d+)(?::|$)")
+
+
 def error_line_number(text: str) -> Optional[int]:
-    """エラーの文言から行番号を拾う。最初の数字を行番号とみなす。"""
-    found = re.search(r"(\d+)", text or "")
-    return int(found.group()) if found else None
+    """エラーの文言から行番号を拾う。
+
+    最初の数字をそのまま行番号とみなしてはならない。入力のパスを表示する
+    プログラムでは、パスの中の数字が拾われる。テスト環境のパスには
+    `python3` が入るので、**どんな入力でも 3 行目と報告したこと**になり、
+    3 行目にエラーのある課題だけ通っていた。
+
+    語ごとに見て、パスらしい語は飛ばす。ただし `file.c:12:` の形で
+    行番号を付けているものは、その数字を拾う。
+    """
+    for token in (text or "").split():
+        if _PATHISH.search(token):
+            suffix = _LINE_SUFFIX.search(token)
+            if suffix:
+                return int(suffix.group(1))
+            continue
+        found = re.search(r"\d+", token)
+        if found:
+            return int(found.group())
+    return None
 
 
 def compare_error_line_or_fail(
