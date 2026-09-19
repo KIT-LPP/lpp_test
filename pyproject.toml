@@ -6,7 +6,7 @@ authors = [{ name = "f0reachARR", email = "f0reach@f0reach.me" }]
 requires-python = ">=3.9"
 readme = "README.md"
 dependencies = [
-    "pytest>=6.2.5,<7",
+    "pytest>=8,<9",
     "whiptail-dialogs>=0.4.0,<0.5",
     "httpx>=0.20.0,<0.28.0",
     "pytest-timeout>=2,<3",
@@ -25,7 +25,7 @@ lppshell = "lpp_collector.shell:main"
 lpp_collector = "lpp_collector"
 
 [dependency-groups]
-dev = ["pytest>=6.2.5,<7"]
+dev = ["pytest>=8,<9"]
 
 [build-system]
 requires = ["hatchling"]
