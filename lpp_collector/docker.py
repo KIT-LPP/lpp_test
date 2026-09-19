@@ -11,6 +11,7 @@ from lpp_collector.config import (
     LPP_UPDATE_MARKER,
     TARGETPATH,
 )
+from .envlabels import RELAY_ENV, relay_value
 from .version import package_version
 import sys
 
@@ -62,6 +63,10 @@ def run_test_container(args: List[str]):
         f"LPP_HOST_VERSION={package_version()}",
         "--env",
         f"LPP_IMAGE_DIGEST={image_digest()}",
+        # 収集時の文脈の申告。エージェントの印はホスト側の環境変数にしか
+        # 無く、コンテナの中で探しても何も見えないので、ここで判定して渡す
+        "--env",
+        f"{RELAY_ENV}={relay_value(target_path)}",
     ]
 
     run_args = [

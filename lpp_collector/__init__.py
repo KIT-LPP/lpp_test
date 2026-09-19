@@ -16,6 +16,7 @@ from _pytest.reports import CollectReport, TestReport
 from .build import take_build_record
 from .config import TARGETPATH
 from .device import LppDevice
+from .envlabels import env_labels
 from .reports import ReportAggregator
 from .snapshot import snapshot
 from .uploader import FOREGROUND_DEADLINE, Uploader
@@ -76,6 +77,7 @@ class LppCollector:
             "imageDigest": os.environ.get("LPP_IMAGE_DIGEST"),
             "buildExit": build.get("exit") if build else None,
             "buildDiagnostics": build.get("diagnostics") if build else None,
+            "envLabels": env_labels(),
             "result": self.result(),
         }
 

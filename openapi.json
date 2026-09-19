@@ -203,6 +203,11 @@
             "format": "json",
             "description": "JSON encoded array. pytest の各 report を {nodeid, outcome, longrepr, duration, when} で並べたもの"
           },
+          "envLabels": {
+            "type": "string",
+            "format": "json",
+            "description": "JSON encoded object of string to string. 収集時の文脈の申告 (例: {\"IS_AGENT\":\"true\"})。サーバは検証しない。 **環境を丸ごと写さないこと。** 送るキーは端末側の固定の一覧から選ぶ。 ここに入った秘密情報をサーバは止められず、研究データに残る。 キーは 32 個まで、キー名は環境変数の形で 64 文字まで、 値は 256 文字まで、全体で 4096 バイトまで。"
+          },
           "sourceCode": {
             "type": "string",
             "format": "binary"
@@ -277,7 +282,12 @@
           "runtimeEnv": {
             "type": "string",
             "format": "json",
-            "description": "JSON encoded object. ASAN_OPTIONS など実行時に与えた環境"
+            "description": "JSON encoded object. ASAN_OPTIONS など実行時に与えた環境。envLabels とは別物で、こちらは測定条件そのもの"
+          },
+          "envLabels": {
+            "type": "string",
+            "format": "json",
+            "description": "JSON encoded object of string to string. 収集時の文脈の申告 (例: {\"IS_AGENT\":\"true\"})。サーバは検証しない。 **環境を丸ごと写さないこと。** 送るキーは端末側の固定の一覧から選ぶ。 ここに入った秘密情報をサーバは止められず、研究データに残る。 キーは 32 個まで、キー名は環境変数の形で 64 文字まで、 値は 256 文字まで、全体で 4096 バイトまで。"
           },
           "argv": {
             "type": "string",

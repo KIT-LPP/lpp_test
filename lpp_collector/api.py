@@ -68,6 +68,9 @@ def attempt_fields(record: Dict[str, Any]) -> Dict[str, str]:
         fields["buildDiagnostics"] = json.dumps(
             record["buildDiagnostics"], ensure_ascii=False
         )
+    if record.get("envLabels"):
+        # 空なら送らない。空文字や "{}" を送っても意味は増えない
+        fields["envLabels"] = json.dumps(record["envLabels"], ensure_ascii=False)
     return fields
 
 
@@ -93,6 +96,8 @@ def run_fields(record: Dict[str, Any]) -> Dict[str, str]:
             fields[key] = str(int(record[key]))
     if record.get("timedOut") is not None:
         fields["timedOut"] = "true" if record["timedOut"] else "false"
+    if record.get("envLabels"):
+        fields["envLabels"] = json.dumps(record["envLabels"], ensure_ascii=False)
     return fields
 
 
