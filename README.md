@@ -136,6 +136,30 @@ API の契約の単一の情報源はサーバ (`lpp_collector_v2`) の `src/api
 クライアントは手書き (`lpp_collector/api.py`) で、送る形が契約と一致することを
 `tests/test_contract.py` が `openapi.json` と突き合わせて検査します。
 
+### 設定の環境変数
+
+接続先 (`LPP_BASE_URL`) と実行の制限時間 (`LPP_RUN_TIMEOUT`) は、ホストで
+設定するとコンテナへもそのまま渡ります。`lpptest` も `lpprun` もホスト側では
+docker を起動するだけで、API を叩くのも課題を走らせるのもコンテナの中なので、
+渡さないと設定しても既定値のまま動きます。
+
+```bash
+LPP_BASE_URL=http://lpp.example.test/lpp_api/ lpptest
+```
+
+値はコンテナの中から見た宛先です。コンテナの中の `127.0.0.1` はコンテナ自身
+なので、手元で動かしているサーバの宛先をそのまま書いても届きません。Docker
+Desktop では `host.docker.internal` で母艦に届きますが、Linux の docker では
+`--add-host=host.docker.internal:host-gateway` が要り、今の wrapper はこれを
+渡していません。手元のサーバに当てる確認は、コンテナを挟まない
+`lpptest --run-pytest` か、このレポジトリの通し確認 (下記) で行ってください。
+
+渡すものは `lpp_collector/docker.py` の `FORWARDED_ENV` が単一の情報源です。
+`LPP_*` をまとめて渡すことはしません。`LPP_DATA_DIR` と `LPP_TARGET_PATH` は
+ホスト側のパスで、コンテナの中ではマウント先 (`/lpp/data`, `/workspaces`) を
+指していなければならないためです。どのコンテナを起動するかの設定
+(`DOCKER_IMAGE`, `LPP_DOCKER_BASE`) も、起動した後の中では意味を持ちません。
+
 ### テスト
 
 ```bash
