@@ -238,6 +238,16 @@ def _state_summary(api: LppApi) -> str:
 
 
 def interactive(api_base: Optional[str] = None) -> int:
+    if not sys.stdin.isatty():
+        # 画面を描く道具なので、端末が無いところでは何も尋ねられない。
+        # 黙って壊れた画面を出すより、どこで動かせばよいかを書く
+        print(
+            "[lpp] 同意とセットアップの画面には端末が要ります。"
+            "エージェントや CI からではなく、ターミナルで直接 "
+            "`lppsetup` を実行してください"
+        )
+        return 1
+
     device = LppDevice()
     whiptail = Whiptail(title=TITLE)
 

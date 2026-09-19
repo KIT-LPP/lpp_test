@@ -50,6 +50,38 @@ def forwarded_env_args(environ: Optional[Mapping[str, str]] = None) -> List[str]
     return args
 
 
+def tty_args(stdin=None) -> List[str]:
+    """`docker run` に渡す `-i` / `-t`。
+
+    `-t` はホストの標準入力が端末のときだけ付ける。端末でないまま `-it` を
+    渡すと docker が起動そのものを拒み (`cannot attach stdin to a TTY-enabled
+    container because stdin is not a terminal`)、コーディングエージェントや
+    CI、パイプ越しの実行では何も走らない。
+
+    `-i` は常に付ける。外すとコンテナの標準入力が閉じ、`echo 3 | lpprun` で
+    渡した入力が学生のプログラムへ届かなくなる。端末でなければコンテナの中でも
+    `isatty()` が偽になるので、`submit.py` の対話の判定もホスト側と揃う。
+    """
+    stream = sys.stdin if stdin is None else stdin
+    args = ["-i"]
+    if _isatty(stream):
+        args.append("-t")
+    return args
+
+
+def _isatty(stream) -> bool:
+    """端末かどうか。判定できなければ端末ではないとみなす。
+
+    `sys.stdin` は閉じられていたり (`isatty()` が ValueError)、そもそも
+    None だったりする (pythonw、stdin を閉じて起動された子プロセス)。
+    そこで例外を上げると、`-t` を付けるかどうかの判定で道具ごと落ちる。
+    """
+    try:
+        return bool(stream.isatty())
+    except (AttributeError, ValueError, OSError):
+        return False
+
+
 def image_digest() -> str:
     """走らせるイメージの digest。
 
@@ -107,7 +139,7 @@ def run_test_container(args: List[str]):
 
     run_args = [
         "run",
-        "-it",
+        *tty_args(),
         "--rm",
         "-v",
         f"{target_path}:/workspaces",

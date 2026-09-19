@@ -4,6 +4,7 @@
 1 学期続いた。画面を差し替えて、何がサーバへ送られるかを確かめる。
 """
 
+import io
 import json
 from collections import namedtuple
 
@@ -157,3 +158,18 @@ def test_a_wrong_token_is_explained(tmp_path, monkeypatch):
     # 握り潰さず、何が起きたか見せる
     assert any("トークンが正しくない" in text for text in whiptail.shown)
     assert device.device_token is None
+
+
+def test_the_screen_is_not_opened_without_a_terminal(monkeypatch, capsys):
+    """端末が無いと whiptail は画面を描けない。壊れた画面より出し方を書く。
+
+    ホスト側で `-t` を付けなくなったので、エージェントや CI から
+    `lppsetup` を実行するとここまで届くようになった。
+    """
+    monkeypatch.setattr(flow.sys, "stdin", io.StringIO())
+    monkeypatch.setattr(
+        flow, "Whiptail", lambda *a, **k: pytest.fail("端末が無いのに画面を開いた")
+    )
+
+    assert flow.interactive() == 1
+    assert "端末が要ります" in capsys.readouterr().out
