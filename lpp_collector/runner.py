@@ -12,8 +12,10 @@ import argcomplete, argparse
 import glob
 from pathlib import Path
 from .docker import fix_permission, run_test_container, run_debug_build, update
+from .submit import is_full_suite_run, offer_after_test
 from .version import warn_on_version_skew
 import os
+import uuid
 
 
 all_testcases = [
@@ -96,6 +98,10 @@ def run_pytest(args):
     # 従来はプラグインが "a" という固定値を申告しており、どの課題の試行か
     # サーバ側で区別できなかった
     os.environ["LPP_TESTSUITE"] = testsuite
+    # 今回の実行の印。提出を持ちかけるかどうかは、プラグインが残した控えが
+    # 今回のものかで決める。pytest が途中で殺されると控えは前回のまま残る
+    session_id = str(uuid.uuid4())
+    os.environ["LPP_SESSION_ID"] = session_id
     subprocess.call(
         [
             "pytest",
@@ -105,6 +111,16 @@ def run_pytest(args):
         cwd=TEST_BASE_DIR,
     )
     os.chdir(pwd)
+
+    # 合否はプラグインが集めた結果で見る。pytest の終了コードではなく
+    # 控えの all_passed を唯一の根拠にする。ただし一部だけを走らせたときは
+    # 尋ねない。集めた結果は走らせた分のものなので、コンパイルのテストだけを
+    # 通しても「すべてのテストが通りました」になってしまう
+    if is_full_suite_run(args.testcases, args.pytest_args):
+        try:
+            offer_after_test(session_id)
+        except Exception as e:  # noqa: BLE001 - テストの結果は出したまま理由を見せる
+            print(f"[lpp] 提出の確認に失敗しました: {e}")
 
 
 def main():

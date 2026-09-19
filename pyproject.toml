@@ -18,6 +18,7 @@ lppconsent = "lpp_collector.consent:main"
 lppsetup = "lpp_collector.consent:setup_main"
 lpptest = "lpp_collector.runner:main_PYTHON_ARGCOMPLETE_OK"
 lpprun = "lpp_collector.lpprun:main"
+lppsubmit = "lpp_collector.submit:main"
 lppc = "lpp_collector.lpprun:compile_main"
 lppshell = "lpp_collector.shell:main"
 

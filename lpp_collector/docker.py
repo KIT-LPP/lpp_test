@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 import subprocess
 import time
-from typing import List
+from typing import List, Mapping, Optional
 from lpp_collector.config import (
     DOCKER_IMAGE,
     LPP_DATA_DIR,
@@ -14,6 +14,40 @@ from lpp_collector.config import (
 from .envlabels import RELAY_ENV, relay_value
 from .version import package_version
 import sys
+
+# ホストで設定された値のうち、そのままコンテナへ渡すもの。
+#
+# 学生が触るコマンドはどれもホスト側で docker を起動するだけで、API を叩くのも
+# 課題を走らせるのもコンテナの中である。渡さないと、ホストで設定しても何も
+# 変わらない (既定値のまま動く) ので、設定した側から見ると黙って無視される。
+#
+# `LPP_*` をまとめて渡すことはしない。`LPP_DATA_DIR` と `LPP_TARGET_PATH` は
+# ホスト側のパスで、コンテナの中ではマウント先 (`/lpp/data`, `/workspaces`) を
+# 指していなければならない。渡すと `derive_data_dir()` と
+# `derive_target_path()` がホストのパスを返し、そこには何も無い。
+#
+# 同じ理由で次のものも渡さない:
+# - `DOCKER_IMAGE`, `LPP_DOCKER_BASE`: どのコンテナを起動するかの設定で、
+#   起動した後のコンテナの中では意味を持たない
+# - `LPP_HOST_VERSION`, `LPP_IMAGE_DIGEST`, `LPP_HOST_ENV_LABELS`: 道具の内部の
+#   伝達路で、下でホスト側が値を決めて渡している
+# - `LPP_TESTSUITE`: 課題名は `run_pytest` がコンテナの中で決める
+FORWARDED_ENV = ("LPP_BASE_URL", "LPP_RUN_TIMEOUT")
+
+
+def forwarded_env_args(environ: Optional[Mapping[str, str]] = None) -> List[str]:
+    """ホストで設定されている分だけを `--env` の並びにする。
+
+    設定されていないものは渡さない。空の値で渡すと、コンテナ側の
+    「設定されていなければ既定値」(`config.py` の `LPP_BASE_URL` など) が
+    「空文字列が設定されている」に変わり、既定値に戻らなくなる。
+    """
+    env = os.environ if environ is None else environ
+    args: List[str] = []
+    for name in FORWARDED_ENV:
+        if name in env:
+            args += ["--env", f"{name}={env[name]}"]
+    return args
 
 
 def image_digest() -> str:
@@ -67,6 +101,8 @@ def run_test_container(args: List[str]):
         # 無く、コンテナの中で探しても何も見えないので、ここで判定して渡す
         "--env",
         f"{RELAY_ENV}={relay_value(target_path)}",
+        # ホストで設定された値。渡さないと設定が効かない
+        *forwarded_env_args(),
     ]
 
     run_args = [

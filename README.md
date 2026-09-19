@@ -112,6 +112,44 @@ lpptest 04test
 * 00_mpplc_compile_test.py - コンパイルできるか，引数の有無での動作，無効なファイル名を与えた動作
 * 01_mpplc_c2c2_run_test.py - コンパイルしたアセンブリプログラムがc2c2で実行できるかを見る．
 
+## 提出 (`lppsubmit`)
+
+テストの結果とソースコードは毎回サーバへ送られますが、それだけでは提出には
+なりません。どの実行を提出とするかはあなたが決めます。
+
+`lpptest` でそのスイートのテストがすべて通ると、最後に確認が出ます。
+
+```
+[lpp] すべてのテストが通りました。01test を提出しますか? [y/N]:
+```
+
+`y` (または `yes`、`はい`) と答えたときだけ提出します。それ以外 (Enter だけ、
+`n`、Ctrl-D) では提出しません。あとから出すこともできます。
+
+この確認は、そのスイートを丸ごと走らせたときだけ出ます。テストケースを 1 つ
+だけ指定したときや `-k`、`--lf` で絞ったときは出ません。走らせた分が通った
+だけで「すべて通った」と言うことになるためです。
+
+```bash
+lppsubmit           # 最後に実行した課題を提出する
+lppsubmit 01test    # 課題を指定して提出する
+lppsubmit -y        # 確認を省く
+```
+
+`lppsubmit` は通らなかった実行でも提出できます。何を提出しようとしているか
+(課題、実行した時刻、通った件数) を表示してから尋ねます。提出は履歴として
+積まれるので、何度提出しても前の提出は消えません。
+
+提出には端末の登録が要ります (`lppsetup`)。研究への同意は要りません。
+テストのときにサーバへ届かなかった実行は、`lppsubmit` が送り直してから
+提出します。回線が切れていた日のものも、後から出せます。
+
+ホスト側で `lppsubmit` が見つからないときは、テスト環境を入れ直してください。
+
+```bash
+pipx install git+https://github.com/KIT-LPP/lpp_test --force
+```
+
 ## Docker内部のディレクトリ配置
 
 各テストはDocker内部に置かれるため、普段意識する必要はない．
@@ -135,6 +173,30 @@ API の契約の単一の情報源はサーバ (`lpp_collector_v2`) の `src/api
 
 クライアントは手書き (`lpp_collector/api.py`) で、送る形が契約と一致することを
 `tests/test_contract.py` が `openapi.json` と突き合わせて検査します。
+
+### 設定の環境変数
+
+接続先 (`LPP_BASE_URL`) と実行の制限時間 (`LPP_RUN_TIMEOUT`) は、ホストで
+設定するとコンテナへもそのまま渡ります。`lpptest` も `lpprun` もホスト側では
+docker を起動するだけで、API を叩くのも課題を走らせるのもコンテナの中なので、
+渡さないと設定しても既定値のまま動きます。
+
+```bash
+LPP_BASE_URL=http://lpp.example.test/lpp_api/ lpptest
+```
+
+値はコンテナの中から見た宛先です。コンテナの中の `127.0.0.1` はコンテナ自身
+なので、手元で動かしているサーバの宛先をそのまま書いても届きません。Docker
+Desktop では `host.docker.internal` で母艦に届きますが、Linux の docker では
+`--add-host=host.docker.internal:host-gateway` が要り、今の wrapper はこれを
+渡していません。手元のサーバに当てる確認は、コンテナを挟まない
+`lpptest --run-pytest` か、このレポジトリの通し確認 (下記) で行ってください。
+
+渡すものは `lpp_collector/docker.py` の `FORWARDED_ENV` が単一の情報源です。
+`LPP_*` をまとめて渡すことはしません。`LPP_DATA_DIR` と `LPP_TARGET_PATH` は
+ホスト側のパスで、コンテナの中ではマウント先 (`/lpp/data`, `/workspaces`) を
+指していなければならないためです。どのコンテナを起動するかの設定
+(`DOCKER_IMAGE`, `LPP_DOCKER_BASE`) も、起動した後の中では意味を持ちません。
 
 ### テスト
 
@@ -166,6 +228,24 @@ LPP_TEST_SERVER=http://127.0.0.1:13459 LPP_TEST_TOKEN=... \
 (`/api/attempt` と `/api/run`)。記録にはビルドのフラグと実行時の環境
 (`ASAN_OPTIONS` など) が入ります。サニタイザの条件が分からない行は
 後から研究に使えないためです。
+
+### 提出の控え
+
+`lpptest` を走らせると、プラグインが直前の試行を
+`LPP_DATA_DIR/attempts/<課題>.json` に控えます (`lpp_collector/submit.py`)。
+提出はこの控えを見て行います。控えには試行の id (サーバの応答)、冪等キー、
+合否、実行の印が入ります。課題ごとに持つのは、`lpptest 01test` の後に
+`lpptest 02test` を走らせてから `lppsubmit` を打ったときに、どちらを出すのか
+決められるようにするためです。
+
+実行の印 (`LPP_SESSION_ID`) は `runner.py` が pytest に渡します。テストの
+直後の確認は、控えがその実行のものであるときだけ出します。pytest が途中で
+殺されると控えは前回のまま残るので、印を見ないと前回の試行を今回のものとして
+提出しかねません。
+
+`POST /api/submission` の `auto` はサーバ側の印で、採点の一覧と Redmine の
+コメントに「自動提出」と出るかどうかだけを決めます。テストを通した流れから
+出したものを `true`、`lppsubmit` で明示的に出したものを `false` にしています。
 
 ### 収集時の文脈の申告 (`envLabels`)
 
