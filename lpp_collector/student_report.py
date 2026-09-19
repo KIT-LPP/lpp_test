@@ -246,8 +246,8 @@ def render(
         lines.append(("", {}))
         lines.append(
             (
-                f"  コンパイルが通っていないため、実行のテスト {len(blocked)} 件も"
-                "失敗しています。",
+                f"  コンパイルが通っていないため、他の {len(blocked)} 件も"
+                "同じ理由で失敗しています。",
                 {},
             )
         )

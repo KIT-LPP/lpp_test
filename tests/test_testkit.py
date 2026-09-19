@@ -198,6 +198,8 @@ def test_the_line_number_comes_from_the_message():
     assert testkit.error_line_number("Line:    3 ERROR: number is too large") == 3
     assert testkit.error_line_number("LINE\t12\nERROR: type is not same") == 12
     assert testkit.error_line_number("Line 3: too big number") == 3
+    # ファイル名の後ろにコロンだけが付いていても、行番号は文言から拾う
+    assert testkit.error_line_number("scan.c: line 12") == 12
 
 
 def test_a_far_off_error_line_fails():

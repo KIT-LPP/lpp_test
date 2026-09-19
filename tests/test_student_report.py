@@ -79,7 +79,7 @@ def test_failures_caused_by_a_broken_build_are_collapsed_into_one_line():
         )
 
     out = text_of(student_report.render("03test", rows, details))
-    assert "コンパイルが通っていないため、実行のテスト 3 件も失敗しています。" in out
+    assert "コンパイルが通っていないため、他の 3 件も同じ理由で失敗しています。" in out
     # 直すところは 1 つなので、巻き添えの分を代表として出さない
     assert "[1] test_compile" in out
     assert "[2]" not in out

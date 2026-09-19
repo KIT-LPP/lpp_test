@@ -49,6 +49,11 @@ def test_not_valid_file():
 def test_absolute_path_file():
     """絶対パスでファイルを指定した場合のテスト"""
     shutil.copy(f"{TEST_BASE_DIR}/input01/sample12.mpl", "/tmp/sample12.mpl")
+    # 前の実行の名残を今回の成果と取り違えない
+    for path in ("./sample12.csl", "/tmp/sample12.csl"):
+        if os.path.isfile(path):
+            os.remove(path)
+
     executed = testkit.run_target(TARGET, "/tmp/sample12.mpl")
     if os.path.isfile("./sample12.csl") or os.path.isfile("/tmp/sample12.csl"):
         return
