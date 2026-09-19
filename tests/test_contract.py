@@ -115,6 +115,7 @@ def test_attempt_fields_match_the_schema():
             "imageDigest": "sha256:x",
             "buildExit": 1,
             "buildDiagnostics": {"gcc": []},
+            "envLabels": {"AGENT_NAME": "claude_code", "MANAGED_BY_GIT": "true"},
             "result": [{"nodeid": "a::b", "outcome": "passed"}],
         }
     )
@@ -126,7 +127,11 @@ def test_attempt_fields_match_the_schema():
     # JSON を載せるフィールドは 1 つの文字列で、配列を繰り返さない
     assert json.loads(fields["result"])[0]["nodeid"] == "a::b"
     assert json.loads(fields["buildDiagnostics"]) == {"gcc": []}
-    for name in ("result", "buildDiagnostics"):
+    assert json.loads(fields["envLabels"]) == {
+        "AGENT_NAME": "claude_code",
+        "MANAGED_BY_GIT": "true",
+    }
+    for name in ("result", "buildDiagnostics", "envLabels"):
         assert schema["properties"][name]["type"] == "string"
 
 
@@ -141,11 +146,14 @@ def test_optional_fields_are_left_out_when_unknown():
             "buildExit": None,
             "buildDiagnostics": None,
             "imageDigest": None,
+            "envLabels": {},
         }
     )
     assert "buildExit" not in fields
     assert "buildDiagnostics" not in fields
     assert "imageDigest" not in fields
+    # 空の申告は送らない。サーバは空文字を 400 で拒む
+    assert "envLabels" not in fields
 
 
 def test_attempt_sends_the_snapshot_as_a_file(recorded):
@@ -206,6 +214,7 @@ def test_run_fields_match_the_schema():
             "timedOut": False,
             "stdout": "hi\n",
             "stderr": "boom\n",
+            "envLabels": {"AGENT_NAME": "none", "MANAGED_BY_GIT": "false"},
         }
     )
     required = set(schema["required"]) - {"sourceCode"}
@@ -218,6 +227,13 @@ def test_run_fields_match_the_schema():
     assert json.loads(fields["buildFlags"]) == ["-g", "-fsanitize=address,undefined"]
     assert json.loads(fields["runtimeEnv"]) == {"ASAN_OPTIONS": "detect_leaks=1"}
     assert json.loads(fields["argv"]) == ["./a.out", "input.mpl"]
+
+    # 測定条件 (runtimeEnv) と収集時の文脈 (envLabels) は別のフィールドで届く
+    assert json.loads(fields["envLabels"]) == {
+        "AGENT_NAME": "none",
+        "MANAGED_BY_GIT": "false",
+    }
+    assert schema["properties"]["envLabels"]["type"] == "string"
 
     # シグナルで落ちた実行は runExit を送らない。負の終了コードにしない
     assert "runExit" not in fields

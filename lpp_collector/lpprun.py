@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from .build import parse_diagnostics, render_diagnostics
 from .config import IS_DOCKER_ENV, LPP_DATA_DIR, TARGETPATH
 from .device import LppDevice
+from .envlabels import env_labels
 from .snapshot import snapshot
 from .uploader import FOREGROUND_DEADLINE, Uploader
 
@@ -246,6 +247,9 @@ def make_record(
         "imageDigest": os.environ.get("LPP_IMAGE_DIGEST"),
         "buildFlags": build_outcome.flags,
         "runtimeEnv": RUNTIME_ENV,
+        # runtimeEnv は測定条件そのもの、envLabels は収集時の文脈の申告で、
+        # サーバ側でも別の列に入る
+        "envLabels": env_labels(),
         "argv": argv,
         "buildExit": build_outcome.exit_code,
         "buildDiagnostics": build_outcome.diagnostics,
