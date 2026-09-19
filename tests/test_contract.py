@@ -115,7 +115,11 @@ def test_attempt_fields_match_the_schema():
             "imageDigest": "sha256:x",
             "buildExit": 1,
             "buildDiagnostics": {"gcc": []},
-            "envLabels": {"AGENT_NAME": "claude_code", "MANAGED_BY_GIT": "true"},
+            "envLabels": {
+                "AGENT_NAME": "claude_code",
+                "AGENT_DECLARED": "claude-code_2-1-278_agent",
+                "MANAGED_BY_GIT": "true",
+            },
             "result": [{"nodeid": "a::b", "outcome": "passed"}],
         }
     )
@@ -129,6 +133,7 @@ def test_attempt_fields_match_the_schema():
     assert json.loads(fields["buildDiagnostics"]) == {"gcc": []}
     assert json.loads(fields["envLabels"]) == {
         "AGENT_NAME": "claude_code",
+        "AGENT_DECLARED": "claude-code_2-1-278_agent",
         "MANAGED_BY_GIT": "true",
     }
     for name in ("result", "buildDiagnostics", "envLabels"):

@@ -4,9 +4,15 @@
 この固定の一覧だけ**である。環境を丸ごと写すと、API キーのような秘密情報が
 そのまま研究データに残り、サーバ側では止められない。
 
-判定は Python の中で行う。学生が設定した環境変数を値として送ることはしない。
-下の表に載っている印は「その印があったかどうか」だけを見て、こちらで決めた
-定数を送る (`CLAUDE_CODE_MESSAGING_TOKEN` の値は送らない、という意味である)。
+判定は Python の中で行う。エージェントの判定は `detect_agent` (Vercel の
+`detect-agent` の Python 移植) に任せ、返ってきた名前が既知の一覧にあるときだけ
+`AGENT_NAME` に載せる。印となる環境変数の**値**は送らない
+(`CLAUDE_CODE_MESSAGING_TOKEN` の値は送らない、という意味である)。
+
+値をそのまま送るのは `AI_AGENT` だけである。これは道具が自分の名前を名乗るための
+変数で、版まで入ることがあり (`claude-code_2-1-278_agent`)、その版が分かること自体
+に意味がある。層別に使う `AGENT_NAME` を版で割らせないために、名乗りは
+`AGENT_DECLARED` という別のキーに分けて載せる。
 
 **判定はホスト側で行う。** `lpptest` と `lpprun` はホスト側で docker を起動し、
 pytest はコンテナの中で走る。エージェントの印はホスト側の環境変数にしか無く、
@@ -21,19 +27,33 @@ import os
 import subprocess
 from typing import Dict, Mapping, Optional
 
+from detect_agent import KNOWN_AGENTS, determine_agent
+
 from .config import TARGETPATH
 
 # サーバが受けるキーの一覧。ここに無いキーは送らないし、受け取っても捨てる
 AGENT_NAME = "AGENT_NAME"
+AGENT_DECLARED = "AGENT_DECLARED"
 MANAGED_BY_GIT = "MANAGED_BY_GIT"
-KNOWN_KEYS = (AGENT_NAME, MANAGED_BY_GIT)
+KNOWN_KEYS = (AGENT_NAME, AGENT_DECLARED, MANAGED_BY_GIT)
 
 # ホストからコンテナへ渡す伝達路
 RELAY_ENV = "LPP_HOST_ENV_LABELS"
 
 # 既知の印が無かった。「エージェントを使っていない」と言い切れるわけではなく、
-# 「この版が知っている印は無かった」である。知らないエージェントは none になる
+# 「この版の detect_agent が知っている印は無かった」である。知らないエージェントは
+# none になる
 NO_AGENT = "none"
+
+# エージェントは居たが、名前が既知の一覧に無かった。`AGENT_NAME` は層別に使うので、
+# 知らない名前をここで増やさない。名乗りそのものは `AGENT_DECLARED` に残る
+OTHER_AGENT = "other"
+
+# 道具が自分の名前を名乗る決まりの環境変数。実際 Claude Code は版まで入れて
+# `claude-code_2-1-278_agent` と名乗る。detect_agent はこれを最優先で読み、
+# 名乗られた文字列をそのまま名前として返すので、印からの判定より先に使わせない
+# (版ごとに `AGENT_NAME` が割れて層別できなくなる)。名乗りは `AGENT_DECLARED` へ回す
+AI_AGENT_ENV = "AI_AGENT"
 
 # サーバ側の上限 (api.ts の envLabelLimits)
 MAX_VALUE_LENGTH = 256
@@ -45,39 +65,79 @@ UNKNOWN = "unknown"
 # 遅くなることがある
 GIT_TIMEOUT = 5.0
 
-# 印 → 送る名前。値は読まない。印があったかどうかだけを見る。
-#
-# 上から順に見て、最初に当たったものを送る。Claude Code を別のエージェントの
-# 端末から動かすと印が両方立つので、順序がそのまま優先順位になる。
-#
-# 載せるのは、その道具の文書か実際の環境で確かめた印だけにする。推測で足すと、
-# 「エージェントを使っていない学生」が使っていることにされる。Cursor のように
-# 印が文書化されていないものは、分かるまで載せない (none になる)。
-AGENT_MARKERS = (
-    # 実際の Claude Code の環境で確認
-    ("CLAUDECODE", "claude_code"),
-    ("CLAUDE_CODE_ENTRYPOINT", "claude_code"),
-    # docs/tools/shell.md: run_shell_command は GEMINI_CLI=1 を立てる
-    ("GEMINI_CLI", "gemini_cli"),
-    # shell ツールは CODEX_SANDBOX_NETWORK_DISABLED=1 を、macOS の
-    # sandbox-exec 経由では CODEX_SANDBOX=seatbelt を立てる。
-    # 砂場を切って動かしていると印が立たないので取りこぼしうる
-    ("CODEX_SANDBOX", "codex"),
-    ("CODEX_SANDBOX_NETWORK_DISABLED", "codex"),
-)
+# 送ってよい名前の一覧。detect_agent が印から決めた名前だけがここに入る。
+# 一覧そのものを detect_agent から借りるので、パッケージを上げれば新しい
+# エージェントもこのファイルを触らずに通る
+KNOWN_AGENT_NAMES = frozenset(KNOWN_AGENTS.values())
 
 
 def _environ(environ: Optional[Mapping[str, str]]) -> Mapping[str, str]:
     return os.environ if environ is None else environ
 
 
+def _determine_by_markers(env: Mapping[str, str]):
+    """印だけで `detect_agent` に訊く。名乗り (`AI_AGENT`) は外す。
+
+    `determine_agent()` は引数を取らず `os.environ` を直接読むので、その間だけ
+    `os.environ` を差し替える (`detect_agent` は呼び出しの度に引き直す)。
+    差し替える先は名乗りを抜いた写しで、これは検査のためだけの仕掛けではない。
+    本番でも、名乗りより印を先に見るために通る道である。
+    """
+    masked = {key: value for key, value in env.items() if key != AI_AGENT_ENV}
+    saved = os.environ
+    os.environ = masked  # type: ignore[assignment]
+    try:
+        return determine_agent()
+    finally:
+        os.environ = saved  # type: ignore[assignment]
+
+
 def detect_agent_name(environ: Optional[Mapping[str, str]] = None) -> str:
-    """どの AI エージェントの下で動いているか。"""
+    """どの AI エージェントの下で動いているか。
+
+    どの印をどの名前に結び付けるかは `detect_agent` が決める。送るのは既知の
+    一覧にある名前だけで、印の**値**は送らない。
+
+    先に印を見て、名乗り (`AI_AGENT`) は印で分からなかったときだけ見る。名乗りは
+    学生の環境次第の文字列なので、既知の名前とそのまま一致するときに限って使い、
+    それ以外は「既知ではない何かが居た」として `other` に畳む。畳んだ中身は
+    `AGENT_DECLARED` (`detect_declared_agent`) に残るので、失われるわけではない。
+    """
     env = _environ(environ)
-    for marker, name in AGENT_MARKERS:
-        if env.get(marker):
+    try:
+        result = _determine_by_markers(env)
+    except Exception:
+        # 申告のために試行の記録を落とさない。分からなかったことは隠さない
+        return UNKNOWN
+
+    if result.get("is_agent"):
+        name = (result.get("agent") or {}).get("name")
+        if isinstance(name, str) and name in KNOWN_AGENT_NAMES:
             return name
-    return NO_AGENT
+        return OTHER_AGENT
+
+    declared = detect_declared_agent(env)
+    if declared == NO_AGENT:
+        return NO_AGENT
+    return declared if declared in KNOWN_AGENT_NAMES else OTHER_AGENT
+
+
+def detect_declared_agent(environ: Optional[Mapping[str, str]] = None) -> str:
+    """道具が `AI_AGENT` で名乗った文字列そのもの。名乗りが無ければ `none`。
+
+    `AGENT_NAME` と分けるのは、名乗りに版が入るためである
+    (`claude-code_2-1-278_agent`)。同じ道具でも版ごとに違う文字列になるので、
+    これを `AGENT_NAME` に入れると層別が版で割れる。分けておけば、層別は
+    `AGENT_NAME` で、版の違いを見たいときは `AGENT_DECLARED` で、と使い分けられる。
+
+    ここだけは環境変数の値をそのまま送る。`AI_AGENT` は道具が自分を名乗るための
+    変数で、秘密を入れる場所ではないためである。それでも上限で切る。上限を破った
+    申告はサーバが 400 で拒み、その試行が丸ごと落ちる。
+    """
+    raw = _environ(environ).get(AI_AGENT_ENV)
+    if not isinstance(raw, str) or not raw.strip():
+        return NO_AGENT
+    return raw.strip()[:MAX_VALUE_LENGTH]
 
 
 def detect_managed_by_git(target_path: str) -> str:
@@ -133,6 +193,7 @@ def detect(
     path = TARGETPATH if target_path is None else target_path
     return {
         AGENT_NAME: detect_agent_name(environ),
+        AGENT_DECLARED: detect_declared_agent(environ),
         MANAGED_BY_GIT: detect_managed_by_git(path),
     }
 
