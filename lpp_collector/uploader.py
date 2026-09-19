@@ -51,6 +51,10 @@ class Uploader:
         self._stop = threading.Event()
         self._unreachable = False
         self.errors: List[str] = []
+        # 送れた試行の id。提出はこれを鍵にするので、応答を捨てない。
+        # 冪等キーで引けるようにしておくと、キューに積んだ側が
+        # 「自分の試行が届いたか」を後から確かめられる
+        self.attempt_ids: Dict[str, str] = {}
 
     # -----------------------------------------------------------------
     def enqueue(self, record: Dict[str, Any], source_tar: bytes) -> Path:
@@ -151,7 +155,11 @@ class Uploader:
             if record.get("kind") == "run":
                 api.post_run(record, source_tar)
             else:
-                api.post_attempt(record, source_tar)
+                response = api.post_attempt(record, source_tar)
+                if isinstance(response, dict) and response.get("attemptId"):
+                    self.attempt_ids[record["idempotencyKey"]] = str(
+                        response["attemptId"]
+                    )
         except ApiError as e:
             if e.status_code == 401:
                 # 束縛が解除されたか、トークンが無効になっている。持ち続けても

@@ -21,6 +21,7 @@ import pytest
 
 from lpp_collector.api import LppApi
 from lpp_collector.device import LppDevice
+from lpp_collector.submit import attempt_state, submit
 from lpp_collector.uploader import Uploader
 
 BASE_URL = os.environ.get("LPP_TEST_SERVER")
@@ -80,9 +81,30 @@ def test_setup_consent_and_submission(tmp_path):
         device, queue_dir=tmp_path / "queue", failed_dir=tmp_path / "failed",
         api_factory=lambda token: LppApi(base_url=BASE_URL, token=token),
     )
-    uploader.enqueue(a_record(device.device_id), a_tar("main.c", b"int main(void){return 1;}"))
+    queued = a_record(device.device_id)
+    uploader.enqueue(queued, a_tar("main.c", b"int main(void){return 1;}"))
     assert uploader.flush() == 1, uploader.errors
     assert uploader.pending() == []
+
+    # 5. キューから送った試行も、その場で提出できる形で id が残る。
+    # 提出は試行の id を鍵にするので、応答を捨てると出せなくなる
+    attempt_id = uploader.attempt_ids[queued["idempotencyKey"]]
+    state = attempt_state(
+        assignment=queued["assignment"],
+        idempotency_key=queued["idempotencyKey"],
+        device_time=queued["deviceTime"],
+        result=queued["result"],
+        attempt_id=attempt_id,
+    )
+    assert state["all_passed"] is True
+    assert submit(
+        state,
+        device,
+        auto=True,
+        api_factory=lambda token: LppApi(base_url=BASE_URL, token=token),
+        state_dir=tmp_path / "attempts",
+    )
+    assert state["submission"]["submissionId"]
 
     with LppApi(base_url=BASE_URL, token=device.device_token) as api:
         second = api.post_attempt(a_record(device.device_id), a_tar())

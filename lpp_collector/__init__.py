@@ -19,6 +19,7 @@ from .device import LppDevice
 from .envlabels import env_labels
 from .reports import ReportAggregator
 from .snapshot import snapshot
+from .submit import attempt_state, save_attempt
 from .uploader import FOREGROUND_DEADLINE, Uploader
 
 
@@ -91,6 +92,22 @@ class LppCollector:
         self.uploader.flush(
             newest_first=True, deadline=time.monotonic() + FOREGROUND_DEADLINE
         )
+
+        # 提出はこの控えを見て行う。送れなかったときも書く。書かずに
+        # 済ませると前回の控えが残り、今回のつもりで前回の試行が出る
+        try:
+            save_attempt(
+                attempt_state(
+                    assignment=assignment,
+                    idempotency_key=record["idempotencyKey"],
+                    device_time=record["deviceTime"],
+                    result=record["result"],
+                    attempt_id=self.uploader.attempt_ids.get(record["idempotencyKey"]),
+                    session_id=os.environ.get("LPP_SESSION_ID"),
+                )
+            )
+        except OSError as e:
+            print(f"[lpp] 今回の試行を控えられませんでした: {e}")
 
         if self._failed():
             # サニタイザ付きで動かすと原因が出ることがある
