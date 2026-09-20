@@ -57,13 +57,21 @@ echo "Checking Docker installation..."
 
 which docker >/dev/null && RET=$? || RET=$?
 if [ $RET -ne 0 ]; then
-  whiptail --title "Docker Installation" --yesno "Docker is not installed. Do you want to install Docker?" 10 60
-  if [ $? -eq 0 ]; then
+  # 端末から直に読む。`curl | bash` で入ると標準入力はスクリプト自身なので、
+  # そこから読むと続きの行を食ってしまう。読めないときは尋ねずに止める
+  ANSWER=""
+  if [ -r /dev/tty ]; then
+    read -r -p "Docker is not installed. Do you want to install Docker? [y/N]: " ANSWER </dev/tty || ANSWER=""
+  fi
+  case "$ANSWER" in
+  [yY] | [yY][eE][sS])
     show_bold "INFO" "[INFO]" "Installing Docker"
-  else
+    ;;
+  *)
     echo "Docker is not installed. Exiting..."
     exit 1
-  fi
+    ;;
+  esac
   curl -fsSL https://get.docker.com | sh
   sudo usermod -aG docker $USER
   echo "Docker installed, reboot your PC and re-run the script"

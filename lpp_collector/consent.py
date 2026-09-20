@@ -11,8 +11,6 @@
 import sys
 from typing import Any, Dict, Optional
 
-from whiptail import Whiptail
-
 from .api import ApiError, LppApi
 from .config import (
     IS_DOCKER_ENV,
@@ -27,30 +25,22 @@ from .config import (
 )
 from .device import LppDevice
 from .docker import fix_permission, run_test_container, update
+from .prompts import Prompts
 from .version import warn_on_version_skew
 
 TITLE = "言語処理プログラミング 研究への同意"
 
 
 def _yes(
-    whiptail: Whiptail, text: str, yes: str = "はい", no: str = "いいえ"
+    ui: Prompts, text: str, yes: str = "はい", no: str = "いいえ"
 ) -> Optional[bool]:
     """はい / いいえ / 中断 を区別する。
 
-    ESC を「いいえ」として扱ってはならない。この POST は開いている同意を
-    取り消して新しい行を積むので、画面から抜けただけで同意が取り消され、
+    中断 (None) を「いいえ」として扱ってはならない。この POST は開いている
+    同意を取り消して新しい行を積むので、画面から抜けただけで同意が取り消され、
     それまで研究に入っていた試行が黙って外れる。
     """
-    response = whiptail.run(
-        "yesno",
-        text,
-        extra_args=["--scrolltext", "--yes-button", yes, "--no-button", no],
-    )
-    if response.returncode == 0:
-        return True
-    if response.returncode == 1:
-        return False
-    return None  # ESC など
+    return ui.ask(text, yes=yes, no=no)
 
 
 def _period(prior: Dict[str, Any]) -> str:
@@ -76,14 +66,14 @@ def _prior_summary(setup_result: Dict[str, Any]) -> Optional[str]:
 
 
 # ---------------------------------------------------------------------------
-def run_setup(api_base: Optional[str], device: LppDevice, whiptail: Whiptail) -> bool:
+def run_setup(api_base: Optional[str], device: LppDevice, ui: Prompts) -> bool:
     """端末と学籍番号を結びつける。成功したら True。"""
-    whiptail.msgbox(LPP_SETUP_TEXT)
+    ui.notice(LPP_SETUP_TEXT)
 
     # トークンは引数に載せない。bash_history がホストに永続化されるため、
     # コマンドラインに書くと後から読める形で残る
-    token, code = whiptail.inputbox("セットアップトークン", password=True)
-    if code != 0 or not token.strip():
+    token = ui.secret("セットアップトークン")
+    if not token or not token.strip():
         print("セットアップを中止しました")
         return False
 
@@ -92,26 +82,26 @@ def run_setup(api_base: Optional[str], device: LppDevice, whiptail: Whiptail) ->
             result = api.setup(token.strip(), device.device_id)
         except ApiError as e:
             if e.status_code == 401:
-                whiptail.msgbox(
+                ui.notice(
                     "トークンが正しくないか、既に無効になっています。\n"
                     "Redmine の Wiki を開き直して確認してください。"
                 )
             elif e.status_code == 409:
-                whiptail.msgbox(
+                ui.notice(
                     "この端末は別の学生に結びついています。\n"
                     "共有の端末では使えません。担当者に連絡してください。"
                 )
             else:
-                whiptail.msgbox(f"セットアップに失敗しました。\n\n{e}")
+                ui.notice(f"セットアップに失敗しました。\n\n{e}")
             return False
 
         device.bind(result["studentId"], result["deviceToken"], result["bindingId"])
-        whiptail.msgbox(
+        ui.notice(
             f"学籍番号 {result['studentId']} としてこの端末を登録しました。"
         )
         return ask_consent(
             api_with_token(api_base, device),
-            whiptail,
+            ui,
             prior_summary=_prior_summary(result),
         )
 
@@ -124,7 +114,7 @@ def api_with_token(api_base: Optional[str], device: LppDevice) -> LppApi:
 
 # ---------------------------------------------------------------------------
 def ask_consent(
-    api: LppApi, whiptail: Whiptail, prior_summary: Optional[str] = None
+    api: LppApi, ui: Prompts, prior_summary: Optional[str] = None
 ) -> bool:
     """研究利用の同意を尋ねて記録する。"""
     with api:
@@ -133,7 +123,7 @@ def ask_consent(
         except ApiError:
             current = None
 
-        research = _yes(whiptail, LPP_CONSENT_TEXT, yes="同意する", no="同意しない")
+        research = _yes(ui, LPP_CONSENT_TEXT, yes="同意する", no="同意しない")
         if research is None:
             print("同意の確認を中断しました。記録は変えていません")
             return False
@@ -143,7 +133,7 @@ def ask_consent(
             publication = False
             include_prior = False
         else:
-            publication = _yes(whiptail, LPP_PUBLICATION_TEXT)
+            publication = _yes(ui, LPP_PUBLICATION_TEXT)
             if publication is None:
                 print("同意の確認を中断しました。記録は変えていません")
                 return False
@@ -158,7 +148,7 @@ def ask_consent(
             # include_prior は毎回尋ねる。この POST は開いている同意を取り消して
             # 新しい行を積むので、既定値で送ると、それまで研究に入っていた
             # 試行が黙って外れる
-            include_prior = _yes(whiptail, text)
+            include_prior = _yes(ui, text)
             if include_prior is None:
                 print("同意の確認を中断しました。記録は変えていません")
                 return False
@@ -166,10 +156,10 @@ def ask_consent(
         try:
             api.post_consent(research, publication, include_prior)
         except ApiError as e:
-            whiptail.msgbox(f"同意の記録に失敗しました。\n\n{e}")
+            ui.notice(f"同意の記録に失敗しました。\n\n{e}")
             return False
 
-    whiptail.msgbox(
+    ui.notice(
         LPP_AFTER_CONSENT_TEXT.format(
             research="同意する" if research else "同意しない",
             publication="はい" if publication else "いいえ",
@@ -179,21 +169,21 @@ def ask_consent(
     return True
 
 
-def revoke_consent(api: LppApi, whiptail: Whiptail) -> bool:
-    if _yes(whiptail, LPP_REVOKE_CONSENT_TEXT, yes="取り消す", no="やめる") is not True:
+def revoke_consent(api: LppApi, ui: Prompts) -> bool:
+    if _yes(ui, LPP_REVOKE_CONSENT_TEXT, yes="取り消す", no="やめる") is not True:
         return False
     with api:
         try:
             api.revoke_consent()
         except ApiError as e:
-            whiptail.msgbox(f"同意の取り消しに失敗しました。\n\n{e}")
+            ui.notice(f"同意の取り消しに失敗しました。\n\n{e}")
             return False
-    whiptail.msgbox("研究への同意を取り消しました。")
+    ui.notice("研究への同意を取り消しました。")
     return True
 
 
-def unbind_device(api: LppApi, device: LppDevice, whiptail: Whiptail) -> bool:
-    if _yes(whiptail, LPP_UNBIND_TEXT, yes="解除する", no="やめる") is not True:
+def unbind_device(api: LppApi, device: LppDevice, ui: Prompts) -> bool:
+    if _yes(ui, LPP_UNBIND_TEXT, yes="解除する", no="やめる") is not True:
         return False
     binding_id = device.binding_id
     with api:
@@ -202,12 +192,12 @@ def unbind_device(api: LppApi, device: LppDevice, whiptail: Whiptail) -> bool:
                 api.unbind_device(binding_id)
         except ApiError as e:
             if e.status_code != 401:
-                whiptail.msgbox(f"解除に失敗しました。\n\n{e}")
+                ui.notice(f"解除に失敗しました。\n\n{e}")
                 return False
             # サーバ側では既に解除されている。手元を揃えて進む
     # 端末の識別子は残す。詳細は LppDevice.forget_binding を参照
     device.forget_binding()
-    whiptail.msgbox("この端末の結びつきを解除しました。")
+    ui.notice("この端末の結びつきを解除しました。")
     return True
 
 
@@ -239,7 +229,7 @@ def _state_summary(api: LppApi) -> str:
 
 def interactive(api_base: Optional[str] = None) -> int:
     if not sys.stdin.isatty():
-        # 画面を描く道具なので、端末が無いところでは何も尋ねられない。
+        # 打鍵を読む道具なので、端末が無いところでは何も尋ねられない。
         # 黙って壊れた画面を出すより、どこで動かせばよいかを書く
         print(
             "[lpp] 同意とセットアップの画面には端末が要ります。"
@@ -249,10 +239,10 @@ def interactive(api_base: Optional[str] = None) -> int:
         return 1
 
     device = LppDevice()
-    whiptail = Whiptail(title=TITLE)
+    ui = Prompts(title=TITLE)
 
     if not device.is_bound():
-        return 0 if run_setup(api_base, device, whiptail) else 1
+        return 0 if run_setup(api_base, device, ui) else 1
 
     while True:
         try:
@@ -261,11 +251,11 @@ def interactive(api_base: Optional[str] = None) -> int:
             # 端末トークンが無効なままだと、どの項目も 401 になって
             # セットアップし直す道がなくなる
             device.forget_binding()
-            whiptail.msgbox(
+            ui.notice(
                 "この端末の登録は解除されています。もう一度セットアップします。"
             )
-            return 0 if run_setup(api_base, device, whiptail) else 1
-        choice, code = whiptail.menu(
+            return 0 if run_setup(api_base, device, ui) else 1
+        choice = ui.menu(
             summary,
             [
                 ("consent", "同意の内容を決め直す"),
@@ -274,14 +264,14 @@ def interactive(api_base: Optional[str] = None) -> int:
                 ("quit", "終了する"),
             ],
         )
-        if code != 0 or choice == "quit":
+        if choice is None or choice == "quit":
             return 0
         if choice == "consent":
-            ask_consent(api_with_token(api_base, device), whiptail)
+            ask_consent(api_with_token(api_base, device), ui)
         elif choice == "revoke":
-            revoke_consent(api_with_token(api_base, device), whiptail)
+            revoke_consent(api_with_token(api_base, device), ui)
         elif choice == "unbind":
-            if unbind_device(api_with_token(api_base, device), device, whiptail):
+            if unbind_device(api_with_token(api_base, device), device, ui):
                 return 0
 
 

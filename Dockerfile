@@ -68,7 +68,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
     ca-certificates curl gnupg gdb make \
     python3-pip tmux \
-    vim less cmake g++ bash-completion whiptail \
+    vim less cmake g++ bash-completion \
     doxygen graphviz texlive-latex-extra texlive-lang-japanese texlive-fonts-extra xdvik-ja \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
