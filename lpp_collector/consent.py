@@ -16,7 +16,9 @@ from .config import (
     IS_DOCKER_ENV,
     LPP_AFTER_CONSENT_TEXT,
     LPP_CONSENT_TEXT,
+    LPP_FIRST_RUN_TEXT,
     LPP_INCLUDE_PRIOR_AGAIN_TEXT,
+    LPP_INCLUDE_PRIOR_FIRST_TEXT,
     LPP_INCLUDE_PRIOR_TEXT,
     LPP_PUBLICATION_TEXT,
     LPP_REVOKE_CONSENT_TEXT,
@@ -104,6 +106,61 @@ def run_setup(api_base: Optional[str], device: LppDevice, ui: Prompts) -> bool:
             ui,
             prior_summary=_prior_summary(result),
         )
+
+
+# ---------------------------------------------------------------------------
+FIRST_RUN_TITLE = "言語処理プログラミング 提出のセットアップ"
+
+
+def offer_setup_on_first_run(
+    api_base: Optional[str] = None,
+    device: Optional[LppDevice] = None,
+    ui: Optional[Prompts] = None,
+    interactive: Optional[bool] = None,
+) -> bool:
+    """まだ登録していない端末で `lpptest` を走らせる前に持ちかける。
+
+    提出には端末の登録が要るが、これまでは全部通った後に
+    「`lppsetup` を実行してください」と出るだけで、そこから先は学生が
+    別のコマンドを打ち直す必要があった。初回にここで尋ねておけば、
+    そのまま提出まで進める。
+
+    断る道を必ず残す。テストを走らせに来た学生を、登録しないと先へ
+    進めない画面で止めてはならない。「今回はしない」と「今後は尋ねない」は
+    分ける。前者は保留であって断りではない。
+    """
+    device = device or LppDevice()
+    if device.is_bound() or device.setup_declined:
+        return False
+
+    if interactive is None:
+        interactive = sys.stdin.isatty()
+    if not interactive:
+        # 端末が無いところ (パイプ、CI、エージェント) では尋ねられない。
+        # 毎回の案内も出さない。提出が要る場面になれば submit.py が書く
+        return False
+
+    ui = ui or Prompts(title=FIRST_RUN_TITLE)
+    choice = ui.menu(
+        LPP_FIRST_RUN_TEXT,
+        [
+            ("setup", "今すぐセットアップする"),
+            ("later", "今はしない (次に実行したときにまた尋ねます)"),
+            ("never", "今後は尋ねない"),
+        ],
+        question="どうしますか",
+    )
+    if choice == "never":
+        device.decline_setup()
+        print("[lpp] 以後この確認は出しません。`lppsetup` でいつでもセットアップできます")
+        return False
+    if choice != "setup":
+        # ESC も「今はしない」も保留として扱う。答えていないことを
+        # 断りとして残さない
+        print("[lpp] セットアップしていません。`lppsetup` でいつでもできます")
+        return False
+
+    return run_setup(api_base, device, ui)
 
 
 def api_with_token(api_base: Optional[str], device: LppDevice) -> LppApi:

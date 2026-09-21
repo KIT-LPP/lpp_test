@@ -39,18 +39,20 @@ class FakePrompts:
         self.shown.append(label)
         return self.inputs.pop(0)
 
-    def menu(self, text, items):
+    def menu(self, text, items, question="操作を選んでください"):
         self.shown.append(text)
+        self.offered = [value for value, _ in items]
         return self.answers.pop(0)
 
 
 class Server:
     """要求を覚えるだけの最小のサーバ。"""
 
-    def __init__(self, consent=None, setup_status=200):
+    def __init__(self, consent=None, setup_status=200, priors=True):
         self.calls = []
         self.consent = consent
         self.setup_status = setup_status
+        self.priors = priors
 
     def transport(self):
         return httpx.MockTransport(self._handle)
@@ -61,16 +63,15 @@ class Server:
         if path == "/api/setup":
             if self.setup_status != 200:
                 return httpx.Response(self.setup_status, json={"error": "nope"})
-            return httpx.Response(
-                200,
-                json={
-                    "studentId": "s1",
-                    "deviceToken": "tok",
-                    "bindingId": "b1",
-                    "priorAttempts": {"count": 3, "from": "2026-04-01T00:00:00Z", "to": "2026-04-02T00:00:00Z"},
-                    "priorRuns": {"count": 2, "from": "2026-04-01T00:00:00Z", "to": "2026-04-02T00:00:00Z"},
-                },
-            )
+            body = {
+                "studentId": "s1",
+                "deviceToken": "tok",
+                "bindingId": "b1",
+            }
+            if self.priors:
+                body["priorAttempts"] = {"count": 3, "from": "2026-04-01T00:00:00Z", "to": "2026-04-02T00:00:00Z"}
+                body["priorRuns"] = {"count": 2, "from": "2026-04-01T00:00:00Z", "to": "2026-04-02T00:00:00Z"}
+            return httpx.Response(200, json=body)
         if path == "/api/consent" and request.method == "GET":
             return httpx.Response(200, json=self.consent)
         if path == "/api/consent" and request.method == "POST":
@@ -173,3 +174,101 @@ def test_the_screen_is_not_opened_without_a_terminal(monkeypatch, capsys):
 
     assert flow.interactive() == 1
     assert "端末が要ります" in capsys.readouterr().out
+
+
+def test_a_first_setup_without_prior_records_still_asks(tmp_path, monkeypatch):
+    """未束縛の記録が 1 件も無い端末でも、最後まで通る。
+
+    この経路だけが別の文面を使う。前は定数を取り込み忘れていて
+    NameError で落ちており、初めて触る学生ほど踏みやすい穴だった。
+    """
+    server = Server(priors=False)
+    device = LppDevice(str(tmp_path / "device.json"))
+    ui = FakePrompts([YES, YES, NO], inputs=["a-token"])
+
+    monkeypatch.setattr(flow, "LppApi", lambda *a, **k: api_for(server, k.get("token")))
+    monkeypatch.setattr(
+        flow, "api_with_token", lambda base, dev: api_for(server, dev.device_token)
+    )
+    assert flow.run_setup(None, device, ui)
+
+    # 別の端末で先に走らせていた分がありうる、という断り
+    assert any("別の端末" in text for text in ui.shown)
+    assert server.posted_consent() == [
+        {"researchOk": True, "publicationOk": True, "includePrior": False}
+    ]
+
+
+# ---------------------------------------------------------------------------
+# lpptest の初回に持ちかける
+# ---------------------------------------------------------------------------
+def first_run(device, ui, monkeypatch, server=None, interactive=True):
+    if server is not None:
+        monkeypatch.setattr(flow, "LppApi", lambda *a, **k: api_for(server, k.get("token")))
+        monkeypatch.setattr(
+            flow, "api_with_token", lambda base, dev: api_for(server, dev.device_token)
+        )
+    return flow.offer_setup_on_first_run(
+        None, device=device, ui=ui, interactive=interactive
+    )
+
+
+def test_the_first_run_offers_setup_and_goes_through(tmp_path, monkeypatch):
+    server = Server()
+    device = LppDevice(str(tmp_path / "device.json"))
+    ui = FakePrompts(["setup", YES, NO, YES], inputs=["a-token"])
+
+    assert first_run(device, ui, monkeypatch, server)
+
+    assert device.device_token == "tok"
+    # 断る道が必ず出ている。登録しないと進めない画面で止めてはならない
+    assert ui.offered == ["setup", "later", "never"]
+
+
+@pytest.mark.parametrize("answer", ["later", ESC])
+def test_postponing_keeps_the_question_open(tmp_path, monkeypatch, answer):
+    """「今はしない」と ESC は保留である。断りとして残さない。"""
+    path = str(tmp_path / "device.json")
+    device = LppDevice(path)
+
+    assert not first_run(device, FakePrompts([answer]), monkeypatch)
+    assert not device.setup_declined
+    # 次に lpptest を走らせたときは、また尋ねる
+    assert not LppDevice(path).setup_declined
+
+
+def test_declining_for_good_is_remembered(tmp_path, monkeypatch):
+    path = str(tmp_path / "device.json")
+
+    assert not first_run(LppDevice(path), FakePrompts(["never"]), monkeypatch)
+
+    device = LppDevice(path)
+    assert device.setup_declined
+    # 一度断った端末には、もう画面を出さない
+    ui = FakePrompts([])
+    assert not first_run(device, ui, monkeypatch)
+    assert ui.shown == []
+
+
+def test_a_registered_device_is_not_asked(tmp_path, monkeypatch):
+    device = LppDevice(str(tmp_path / "device.json"))
+    device.bind("s1", "tok", "b1")
+
+    ui = FakePrompts([])
+    assert not first_run(device, ui, monkeypatch)
+    assert ui.shown == []
+
+
+def test_nothing_is_asked_without_a_terminal(tmp_path, monkeypatch, capsys):
+    """端末が無いところ (CI、エージェント、パイプ) では尋ねない。
+
+    毎回の案内も出さない。提出が要る場面になれば submit.py が書く。
+    """
+    path = str(tmp_path / "device.json")
+    ui = FakePrompts([])
+
+    assert not first_run(LppDevice(path), ui, monkeypatch, interactive=False)
+    assert ui.shown == []
+    assert capsys.readouterr().out == ""
+    # 尋ねていないのだから、断ったことにもしない
+    assert not LppDevice(path).setup_declined

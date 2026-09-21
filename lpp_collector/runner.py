@@ -154,6 +154,18 @@ def main():
         if IS_DOCKER_ENV:
             # 学生が普段使うのは lpptest なので、版のずれはここで知らせる
             warn_on_version_skew()
+        try:
+            # 登録していない端末では、テストの前に提出のセットアップを
+            # 持ちかける。断っても下のテストはそのまま走る。
+            #
+            # ここで取り込むのは、この経路に入ったときだけ InquirerPy を
+            # 読むためである。このファイルは argcomplete の補完でも丸ごと
+            # 評価されるので、上に置くと <TAB> のたびに画面の道具が載る
+            from .consent import offer_setup_on_first_run
+
+            offer_setup_on_first_run()
+        except Exception as e:  # noqa: BLE001 - 尋ねるのに失敗してもテストは走らせる
+            print(f"[lpp] セットアップの確認に失敗しました: {e}")
         run_pytest(args)
     else:
         if "LPP_DOCKER_BASE" in os.environ:

@@ -71,6 +71,21 @@ class LppDevice:
     def is_bound(self) -> bool:
         return bool(self.device_token)
 
+    @property
+    def setup_declined(self) -> bool:
+        """`lpptest` の初回の案内を「今後は尋ねない」で閉じたか。
+
+        「今回はしない」はここに残さない。答えを保留しただけの学生に、
+        二度と案内が出ないのでは提出の入口が消える。
+        """
+        return bool(self._data.get("setup_declined_at"))
+
+    def decline_setup(self):
+        from datetime import datetime
+
+        self._data["setup_declined_at"] = datetime.now().astimezone().isoformat()
+        self._save()
+
     def bind(self, student_id: str, device_token: str, binding_id: str):
         self._data["student_id"] = student_id
         self._data["device_token"] = device_token
