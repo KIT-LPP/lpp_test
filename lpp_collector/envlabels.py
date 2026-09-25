@@ -30,8 +30,10 @@ from typing import Dict, Mapping, Optional
 from detect_agent import KNOWN_AGENTS, determine_agent
 
 from .config import TARGETPATH
+from .flags import AUTO_SUBMIT_ENV, AUTO_SUBMIT_MODES
 
-# サーバが受けるキーの一覧。ここに無いキーは送らないし、受け取っても捨てる
+# ホスト側で判定するキーの一覧。ここに無いキーはホストから受け取っても捨てる。
+# 送るのはこれに AUTO_SUBMIT (下) を足したものだけである
 AGENT_NAME = "AGENT_NAME"
 AGENT_DECLARED = "AGENT_DECLARED"
 MANAGED_BY_GIT = "MANAGED_BY_GIT"
@@ -39,6 +41,11 @@ KNOWN_KEYS = (AGENT_NAME, AGENT_DECLARED, MANAGED_BY_GIT)
 
 # ホストからコンテナへ渡す伝達路
 RELAY_ENV = "LPP_HOST_ENV_LABELS"
+
+# 自動提出のフラグの実効値 (flags.py)。`prompt` / `off` / `unavailable`。
+# 分析で「この試行のあとに提出を尋ねたか」を区別するために載せる。
+# ホストではなくコンテナの runner が決める値なので、RELAY_ENV からは受け取らない
+AUTO_SUBMIT = "AUTO_SUBMIT"
 
 # 既知の印が無かった。「エージェントを使っていない」と言い切れるわけではなく、
 # 「この版の detect_agent が知っている印は無かった」である。知らないエージェントは
@@ -247,4 +254,7 @@ def env_labels(
     env = _environ(environ)
     labels = detect(target_path, env)
     labels.update(_relayed(env))
+    auto_submit = env.get(AUTO_SUBMIT_ENV)
+    if auto_submit in AUTO_SUBMIT_MODES:
+        labels[AUTO_SUBMIT] = auto_submit
     return labels

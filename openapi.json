@@ -10,6 +10,11 @@
         "type": "http",
         "scheme": "bearer",
         "description": "セットアップの応答で返る端末トークン。端末の device.json に 0600 で保存する"
+      },
+      "adminBasic": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "ADMIN_USER と ADMIN_PASSWORD。管理 UI と同じ組である"
       }
     },
     "schemas": {
@@ -381,6 +386,1575 @@
           "unboundAt",
           "attemptCount",
           "lastDeviceTime"
+        ]
+      },
+      "FlagsResponse": {
+        "type": "object",
+        "properties": {
+          "flags": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "flags"
+        ]
+      },
+      "Monitoring": {
+        "type": "object",
+        "properties": {
+          "students": {
+            "type": "integer"
+          },
+          "activeConsents": {
+            "type": "integer"
+          },
+          "researchConsents": {
+            "type": "integer"
+          },
+          "openBindings": {
+            "type": "integer"
+          },
+          "attempts": {
+            "type": "integer"
+          },
+          "unboundAttempts": {
+            "type": "integer"
+          },
+          "unboundRatio": {
+            "type": "number"
+          },
+          "researchAttempts": {
+            "type": "integer"
+          },
+          "runs": {
+            "type": "integer"
+          },
+          "researchRuns": {
+            "type": "integer"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "students",
+          "activeConsents",
+          "researchConsents",
+          "openBindings",
+          "attempts",
+          "unboundAttempts",
+          "unboundRatio",
+          "researchAttempts",
+          "runs",
+          "researchRuns",
+          "warnings"
+        ]
+      },
+      "DeviceSummary": {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string"
+          },
+          "studentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "bound": {
+            "type": "boolean"
+          },
+          "attemptCount": {
+            "type": "integer"
+          },
+          "lastDeviceTime": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "deviceId",
+          "studentId",
+          "bound",
+          "attemptCount",
+          "lastDeviceTime"
+        ]
+      },
+      "EnvLabels": {
+        "type": "object",
+        "nullable": true,
+        "additionalProperties": {
+          "type": "string"
+        }
+      },
+      "AttemptSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "deviceId": {
+            "type": "string"
+          },
+          "studentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "assignmentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "deviceTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deviceSentAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "receivedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "buildExit": {
+            "type": "integer",
+            "nullable": true
+          },
+          "passed": {
+            "type": "integer"
+          },
+          "failed": {
+            "type": "integer"
+          },
+          "other": {
+            "type": "integer"
+          },
+          "fileCount": {
+            "type": "integer"
+          },
+          "envLabels": {
+            "$ref": "#/components/schemas/EnvLabels"
+          }
+        },
+        "required": [
+          "id",
+          "deviceId",
+          "studentId",
+          "assignmentId",
+          "deviceTime",
+          "deviceSentAt",
+          "receivedAt",
+          "buildExit",
+          "passed",
+          "failed",
+          "other",
+          "fileCount",
+          "envLabels"
+        ]
+      },
+      "RunSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "deviceId": {
+            "type": "string"
+          },
+          "studentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "deviceTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "assignmentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "argv": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "buildExit": {
+            "type": "integer",
+            "nullable": true
+          },
+          "runExit": {
+            "type": "integer",
+            "nullable": true
+          },
+          "runSignal": {
+            "type": "integer",
+            "nullable": true
+          },
+          "timedOut": {
+            "type": "boolean"
+          },
+          "durationMs": {
+            "type": "integer",
+            "nullable": true
+          },
+          "sanitizerReport": {
+            "type": "boolean"
+          },
+          "envLabels": {
+            "$ref": "#/components/schemas/EnvLabels"
+          }
+        },
+        "required": [
+          "id",
+          "deviceId",
+          "studentId",
+          "deviceTime",
+          "assignmentId",
+          "argv",
+          "buildExit",
+          "runExit",
+          "runSignal",
+          "timedOut",
+          "durationMs",
+          "sanitizerReport",
+          "envLabels"
+        ]
+      },
+      "SnapshotFile": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "blobSha": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer",
+            "nullable": true
+          },
+          "mtime": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "path",
+          "blobSha",
+          "size",
+          "mtime"
+        ]
+      },
+      "RunDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "deviceId": {
+            "type": "string"
+          },
+          "bindingId": {
+            "type": "string",
+            "nullable": true
+          },
+          "assignmentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "deviceTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deviceSentAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "receivedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "runnerVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "imageDigest": {
+            "type": "string",
+            "nullable": true
+          },
+          "buildFlags": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "runtimeEnv": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "envLabels": {
+            "$ref": "#/components/schemas/EnvLabels"
+          },
+          "argv": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "buildExit": {
+            "type": "integer",
+            "nullable": true
+          },
+          "buildDiagnostics": {
+            "nullable": true
+          },
+          "runExit": {
+            "type": "integer",
+            "nullable": true
+          },
+          "runSignal": {
+            "type": "integer",
+            "nullable": true
+          },
+          "durationMs": {
+            "type": "integer",
+            "nullable": true
+          },
+          "timedOut": {
+            "type": "boolean"
+          },
+          "stdout": {
+            "type": "string",
+            "nullable": true
+          },
+          "stdoutTruncated": {
+            "type": "boolean"
+          },
+          "stderr": {
+            "type": "string",
+            "nullable": true
+          },
+          "stderrTruncated": {
+            "type": "boolean"
+          },
+          "sourceSha": {
+            "type": "string"
+          },
+          "deletedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SnapshotFile"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "idempotencyKey",
+          "deviceId",
+          "bindingId",
+          "assignmentId",
+          "deviceTime",
+          "deviceSentAt",
+          "receivedAt",
+          "runnerVersion",
+          "imageDigest",
+          "buildFlags",
+          "runtimeEnv",
+          "envLabels",
+          "argv",
+          "buildExit",
+          "runExit",
+          "runSignal",
+          "durationMs",
+          "timedOut",
+          "stdout",
+          "stdoutTruncated",
+          "stderr",
+          "stderrTruncated",
+          "sourceSha",
+          "deletedAt",
+          "files"
+        ]
+      },
+      "AdminError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "AttemptDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AttemptSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "assignmentDeclared": {
+                "type": "string",
+                "nullable": true
+              },
+              "runnerVersion": {
+                "type": "string",
+                "nullable": true
+              },
+              "imageDigest": {
+                "type": "string",
+                "nullable": true
+              },
+              "buildDiagnostics": {
+                "nullable": true
+              },
+              "testCases": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "seq": {
+                      "type": "integer"
+                    },
+                    "nodeid": {
+                      "type": "string"
+                    },
+                    "passed": {
+                      "type": "boolean",
+                      "nullable": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "seq",
+                    "nodeid",
+                    "passed",
+                    "message"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "assignmentDeclared",
+              "runnerVersion",
+              "imageDigest",
+              "testCases"
+            ]
+          }
+        ]
+      },
+      "AttemptNeighbors": {
+        "type": "object",
+        "properties": {
+          "prev": {
+            "type": "string",
+            "nullable": true
+          },
+          "next": {
+            "type": "string",
+            "nullable": true
+          },
+          "deviceId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "prev",
+          "next",
+          "deviceId"
+        ]
+      },
+      "StudentSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "courseNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "redmineProject": {
+            "type": "string",
+            "nullable": true
+          },
+          "redmineProjectId": {
+            "type": "integer",
+            "nullable": true
+          },
+          "redmineUserId": {
+            "type": "integer",
+            "nullable": true
+          },
+          "redmineSetupIssueId": {
+            "type": "integer",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "activeTokens": {
+            "type": "integer"
+          },
+          "tokenCount": {
+            "type": "integer"
+          },
+          "openBindings": {
+            "type": "integer"
+          },
+          "attempts": {
+            "type": "integer"
+          },
+          "researchOk": {
+            "type": "boolean",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "courseNo",
+          "redmineProject",
+          "redmineProjectId",
+          "redmineUserId",
+          "redmineSetupIssueId",
+          "createdAt",
+          "activeTokens",
+          "tokenCount",
+          "openBindings",
+          "attempts",
+          "researchOk"
+        ]
+      },
+      "StudentImportResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "created": {
+            "type": "integer"
+          },
+          "updated": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ok",
+          "created",
+          "updated",
+          "total"
+        ]
+      },
+      "StudentImportRequest": {
+        "type": "object",
+        "properties": {
+          "csv": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "csv"
+        ]
+      },
+      "IssuedToken": {
+        "type": "object",
+        "properties": {
+          "studentId": {
+            "type": "string"
+          },
+          "courseNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "redmineProject": {
+            "type": "string",
+            "nullable": true
+          },
+          "token": {
+            "type": "string"
+          },
+          "tokenHash": {
+            "type": "string"
+          },
+          "issuedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "studentId",
+          "courseNo",
+          "redmineProject",
+          "token",
+          "tokenHash",
+          "issuedAt"
+        ]
+      },
+      "BulkTokensIssued": {
+        "type": "object",
+        "properties": {
+          "issued": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IssuedToken"
+            }
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "csv": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "issued",
+          "missing",
+          "csv"
+        ]
+      },
+      "BulkTokenRequest": {
+        "type": "object",
+        "properties": {
+          "studentIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "maxUses": {
+            "type": "integer",
+            "nullable": true,
+            "description": "省略すると無制限。演習室の端末と自分の PC で詰まらせない"
+          }
+        },
+        "required": [
+          "studentIds"
+        ]
+      },
+      "StudentRef": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "StudentCreateRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "courseNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "redmineProject": {
+            "type": "string",
+            "nullable": true
+          },
+          "redmineProjectId": {
+            "type": "integer",
+            "nullable": true
+          },
+          "redmineUserId": {
+            "type": "integer",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "SetupTokenRow": {
+        "type": "object",
+        "properties": {
+          "tokenHash": {
+            "type": "string"
+          },
+          "issuedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastUsedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "useCount": {
+            "type": "integer"
+          },
+          "maxUses": {
+            "type": "integer",
+            "nullable": true
+          },
+          "revokedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "bindings": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tokenHash",
+          "issuedAt",
+          "lastUsedAt",
+          "useCount",
+          "maxUses",
+          "revokedAt",
+          "bindings"
+        ]
+      },
+      "StudentBinding": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "deviceId": {
+            "type": "string"
+          },
+          "boundAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "unboundAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "setupTokenHash": {
+            "type": "string",
+            "nullable": true
+          },
+          "attempts": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "deviceId",
+          "boundAt",
+          "unboundAt",
+          "setupTokenHash",
+          "attempts"
+        ]
+      },
+      "StudentDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/StudentSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "tokens": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SetupTokenRow"
+                }
+              },
+              "bindings": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/StudentBinding"
+                }
+              }
+            },
+            "required": [
+              "tokens",
+              "bindings"
+            ]
+          }
+        ]
+      },
+      "StudentUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "courseNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "redmineProject": {
+            "type": "string",
+            "nullable": true
+          },
+          "redmineProjectId": {
+            "type": "integer",
+            "nullable": true
+          },
+          "redmineUserId": {
+            "type": "integer",
+            "nullable": true
+          }
+        }
+      },
+      "TokenIssued": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "tokenHash": {
+            "type": "string"
+          },
+          "issuedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "token",
+          "tokenHash",
+          "issuedAt"
+        ]
+      },
+      "TokenRequest": {
+        "type": "object",
+        "properties": {
+          "maxUses": {
+            "type": "integer",
+            "nullable": true,
+            "description": "省略すると無制限。演習室の端末と自分の PC で詰まらせない"
+          }
+        }
+      },
+      "Revoked": {
+        "type": "object",
+        "properties": {
+          "revoked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "revoked"
+        ]
+      },
+      "RevokeRequest": {
+        "type": "object",
+        "properties": {}
+      },
+      "GradingOverview": {
+        "type": "object",
+        "properties": {
+          "assignmentId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "subject": {
+            "type": "string",
+            "nullable": true
+          },
+          "deadline": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "submitted": {
+            "type": "integer"
+          },
+          "graded": {
+            "type": "integer"
+          },
+          "failed": {
+            "type": "integer"
+          },
+          "pending": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "assignmentId",
+          "name",
+          "subject",
+          "deadline",
+          "submitted",
+          "graded",
+          "failed",
+          "pending"
+        ]
+      },
+      "SuiteResult": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "assignmentId": {
+            "type": "string"
+          },
+          "runId": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "nullable": true
+          },
+          "failureReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "imageDigest": {
+            "type": "string",
+            "nullable": true
+          },
+          "buildDir": {
+            "type": "string",
+            "nullable": true
+          },
+          "score": {
+            "type": "number",
+            "nullable": true
+          },
+          "passedCases": {
+            "type": "integer",
+            "nullable": true
+          },
+          "totalCases": {
+            "type": "integer",
+            "nullable": true
+          },
+          "compiled": {
+            "type": "boolean"
+          },
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "testname": {
+                  "type": "string"
+                },
+                "short": {
+                  "type": "string"
+                },
+                "passed": {
+                  "type": "boolean",
+                  "nullable": true
+                }
+              },
+              "required": [
+                "testname",
+                "short",
+                "passed"
+              ]
+            }
+          }
+        },
+        "required": [
+          "assignmentId",
+          "runId",
+          "state",
+          "failureReason",
+          "imageDigest",
+          "buildDir",
+          "score",
+          "passedCases",
+          "totalCases",
+          "compiled",
+          "cases"
+        ]
+      },
+      "CandidateView": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "redmine",
+              "auto",
+              "manual"
+            ]
+          },
+          "submittedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "onTime": {
+            "type": "boolean"
+          },
+          "inputKind": {
+            "type": "string",
+            "enum": [
+              "zip",
+              "snapshot"
+            ]
+          },
+          "inputSha": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string",
+            "nullable": true
+          },
+          "attemptId": {
+            "type": "string",
+            "nullable": true
+          },
+          "score": {
+            "type": "number",
+            "nullable": true
+          },
+          "best": {
+            "$ref": "#/components/schemas/SuiteResult"
+          },
+          "suites": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SuiteResult"
+            }
+          }
+        },
+        "required": [
+          "key",
+          "origin",
+          "submittedAt",
+          "onTime",
+          "inputKind",
+          "inputSha",
+          "filename",
+          "attemptId",
+          "score",
+          "best",
+          "suites"
+        ]
+      },
+      "GradingRow": {
+        "type": "object",
+        "properties": {
+          "studentId": {
+            "type": "string"
+          },
+          "courseNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "selected": {
+            "$ref": "#/components/schemas/CandidateView"
+          },
+          "hasLater": {
+            "type": "boolean"
+          },
+          "lateOnly": {
+            "type": "boolean"
+          },
+          "candidateCount": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "studentId",
+          "courseNo",
+          "selected",
+          "hasLater",
+          "lateOnly",
+          "candidateCount"
+        ]
+      },
+      "GradingTable": {
+        "type": "object",
+        "properties": {
+          "assignmentId": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string",
+            "nullable": true
+          },
+          "suites": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "deadline": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "rubricVersion": {
+            "type": "string"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "testname": {
+                  "type": "string"
+                },
+                "short": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "testname",
+                "short"
+              ]
+            }
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GradingRow"
+            }
+          }
+        },
+        "required": [
+          "assignmentId",
+          "subject",
+          "suites",
+          "deadline",
+          "rubricVersion",
+          "columns",
+          "rows"
+        ]
+      },
+      "GradingHistory": {
+        "type": "object",
+        "properties": {
+          "assignmentId": {
+            "type": "string"
+          },
+          "studentId": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string",
+            "nullable": true
+          },
+          "deadline": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "selectedKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "hasLater": {
+            "type": "boolean"
+          },
+          "lateOnly": {
+            "type": "boolean"
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CandidateView"
+            }
+          }
+        },
+        "required": [
+          "assignmentId",
+          "studentId",
+          "subject",
+          "deadline",
+          "selectedKey",
+          "hasLater",
+          "lateOnly",
+          "candidates"
+        ]
+      },
+      "SubmissionFiles": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "no_bytes",
+              "done",
+              "error"
+            ]
+          },
+          "failureReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "retrying": {
+            "type": "boolean"
+          },
+          "skippedCount": {
+            "type": "integer",
+            "nullable": true
+          },
+          "submission": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "studentId": {
+                "type": "string"
+              },
+              "subject": {
+                "type": "string"
+              },
+              "issueId": {
+                "type": "integer"
+              },
+              "filename": {
+                "type": "string",
+                "nullable": true
+              },
+              "filesize": {
+                "type": "integer",
+                "nullable": true
+              },
+              "blobSha": {
+                "type": "string",
+                "nullable": true
+              },
+              "attachedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "id",
+              "studentId",
+              "subject",
+              "issueId",
+              "filename",
+              "filesize",
+              "blobSha",
+              "attachedAt"
+            ]
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SnapshotFile"
+            }
+          }
+        },
+        "required": [
+          "state",
+          "failureReason",
+          "retrying",
+          "skippedCount",
+          "submission",
+          "files"
+        ]
+      },
+      "GradingRunDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "inputKind": {
+            "type": "string",
+            "enum": [
+              "zip",
+              "snapshot"
+            ]
+          },
+          "inputSha": {
+            "type": "string"
+          },
+          "assignmentId": {
+            "type": "string"
+          },
+          "imageDigest": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "failureReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "buildDir": {
+            "type": "string",
+            "nullable": true
+          },
+          "stdout": {
+            "type": "string",
+            "nullable": true
+          },
+          "startedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "finishedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "seq": {
+                  "type": "integer"
+                },
+                "nodeid": {
+                  "type": "string"
+                },
+                "testname": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "passed": {
+                  "type": "boolean",
+                  "nullable": true
+                },
+                "message": {
+                  "type": "string",
+                  "nullable": true
+                }
+              },
+              "required": [
+                "seq",
+                "nodeid",
+                "testname",
+                "passed",
+                "message"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "inputKind",
+          "inputSha",
+          "assignmentId",
+          "imageDigest",
+          "state",
+          "failureReason",
+          "buildDir",
+          "stdout",
+          "startedAt",
+          "finishedAt",
+          "cases"
+        ]
+      },
+      "FlagRow": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "assignmentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "studentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "value": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "assignmentId",
+          "studentId",
+          "value",
+          "note",
+          "updatedAt"
+        ]
+      },
+      "FlagSetRequest": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "assignmentId": {
+            "type": "string",
+            "nullable": true,
+            "minLength": 1
+          },
+          "studentId": {
+            "type": "string",
+            "nullable": true,
+            "minLength": 1
+          },
+          "value": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "key",
+          "assignmentId",
+          "studentId",
+          "value"
+        ]
+      },
+      "Deleted": {
+        "type": "object",
+        "properties": {
+          "deleted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "deleted"
+        ]
+      },
+      "FlagDeleteRequest": {
+        "type": "object",
+        "properties": {
+          "note": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ResolvedFlag": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "assignmentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "studentId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "key",
+          "value",
+          "id",
+          "assignmentId",
+          "studentId"
+        ]
+      },
+      "FlagEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "assignmentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "studentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "oldValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "newValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "changedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "assignmentId",
+          "studentId",
+          "oldValue",
+          "newValue",
+          "note",
+          "changedAt"
         ]
       }
     },
@@ -917,6 +2491,59 @@
         }
       }
     },
+    "/api/flags": {
+      "get": {
+        "security": [
+          {
+            "deviceToken": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "assignment",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Flags resolved for the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlagsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request does not match the contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Device token was supplied but is not bound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/assignments": {
       "get": {
         "responses": {
@@ -956,6 +2583,1344 @@
                   "required": [
                     "assignments"
                   ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/monitoring": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Counts and warnings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Monitoring"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/devices": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Devices with attempts or an open binding",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "devices": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DeviceSummary"
+                      }
+                    }
+                  },
+                  "required": [
+                    "devices"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/devices/{deviceId}/attempts": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "deviceId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attempts of one device, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deviceId": {
+                      "type": "string"
+                    },
+                    "attempts": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AttemptSummary"
+                      }
+                    }
+                  },
+                  "required": [
+                    "deviceId",
+                    "attempts"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/devices/{deviceId}/runs": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "deviceId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "lpprun executions of one device, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deviceId": {
+                      "type": "string"
+                    },
+                    "runs": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RunSummary"
+                      }
+                    }
+                  },
+                  "required": [
+                    "deviceId",
+                    "runs"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/runs/{id}": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One lpprun execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/attempts/{id}": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One attempt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttemptDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/attempts/{id}/neighbors": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Previous and next attempt of the same device",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttemptNeighbors"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/attempts/{id}/files": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Snapshot listing. Bytes come from /blobs/{sha}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "files": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SnapshotFile"
+                      }
+                    }
+                  },
+                  "required": [
+                    "files"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/students": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All students",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "students": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/StudentSummary"
+                      }
+                    }
+                  },
+                  "required": [
+                    "students"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StudentCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Student created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentRef"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Course number is not numeric, or the request does not match the contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The student id or the course number is taken",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/students/import": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StudentImportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Roster imported. No token is issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentImportResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unreadable CSV, or the request does not match the contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A course number is taken by a student outside the import",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/students/tokens": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkTokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tokens issued. The plaintext appears here only",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkTokensIssued"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request does not match the contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/students/{id}": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One student",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StudentUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Student updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentRef"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Course number is not numeric, or the request does not match the contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The course number is taken",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/students/{id}/tokens": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Token issued. The plaintext appears here only; do not log it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenIssued"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request does not match the contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/tokens/{hash}/revoke": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "required": true,
+            "name": "hash",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Revoked"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The hash is not 64 hex digits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown token, or it is already revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/grading": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Per-assignment progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "assignments": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/GradingOverview"
+                      }
+                    }
+                  },
+                  "required": [
+                    "assignments"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/grading/all.csv": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every assignment in one sheet",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/grading/{assignmentId}": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "assignmentId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scores of one assignment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GradingTable"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/grading/{assignmentId}/csv": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "assignmentId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scores of one assignment",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/grading/{assignmentId}/students/{studentId}": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "assignmentId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "studentId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every candidate of one student, selected or not",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GradingHistory"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/submissions/{id}/files": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Extracted sources of one Redmine attachment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmissionFiles"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/grading-runs/{runId}": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "runId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One grading container run. Build diagnostics land in the test_compile case",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GradingRunDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/flags": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every flag row",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "flags": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/FlagRow"
+                      }
+                    }
+                  },
+                  "required": [
+                    "flags"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FlagSetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Flag updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlagRow"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Flag created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlagRow"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown student or assignment, or the request does not match the contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/flags/{id}": {
+      "delete": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FlagDeleteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Flag deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deleted"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/flags/resolve": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "studentId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "assignmentId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Flags a device would receive. Same resolution as GET /api/flags",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "flags": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ResolvedFlag"
+                      }
+                    }
+                  },
+                  "required": [
+                    "flags"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/flags/events": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Flag changes, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/FlagEvent"
+                      }
+                    }
+                  },
+                  "required": [
+                    "events"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/blobs/{sha}": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "adminBasic": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "required": true,
+            "name": "sha",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File bytes. sha decides the content, so this never changes",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The sha is not 64 hex digits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminError"
                 }
               }
             }

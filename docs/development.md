@@ -141,6 +141,27 @@ LPP_CASLJS_DIR=<このレポジトリ>/casljs \
 コメントに「自動提出」と出るかどうかだけを決めます。テストを通した流れから
 出したものを `true`、`lppsubmit` で明示的に出したものを `false` にしています。
 
+## サーバが配るフラグ
+
+テストの直後に提出を尋ねるかどうかは、サーバが配るフィーチャーフラグ
+`auto_submit` で決まります (`lpp_collector/flags.py`)。設計はサーバ側の
+`docs/feature-flags-plan.md` にあり、値は管理画面の「フラグ」で変えます。
+
+`runner.py` が pytest を起動する前に `GET /api/flags` を呼びます。取得の全体に
+3 秒の期限があり、届かなければ `off` (尋ねない) で動きます。キャッシュは
+持ちません。取得はコンテナの中だけで行い、ホスト側では行いません。ホスト側の
+lpp_test は更新されないので、そこに取得を入れると後から直せないためです。
+
+| 値 | 挙動 |
+| --- | --- |
+| `prompt` | 全テストが通ったら `[y/N]` で提出を尋ねる |
+| `off` | 尋ねず、`lppsubmit` の案内も出さない。行が無いとき、知らない値のときもこれ |
+
+実効値は `LPP_AUTO_SUBMIT` で pytest に渡し、試行の `envLabels` に
+`AUTO_SUBMIT` として載せます。届かずに既定値で動いたときは `unavailable` に
+なるので、分析で「サーバが off を返した」と区別できます。`lppsubmit` による
+手動の提出はこのフラグの影響を受けません。
+
 ## 収集時の文脈の申告 (`envLabels`)
 
 記録には、そのとき何を使って書いていたかの申告が付きます。送るキーは
@@ -154,6 +175,7 @@ LPP_CASLJS_DIR=<このレポジトリ>/casljs \
 | `AGENT_NAME` | `claude_code` / `gemini_cli` / `codex_cli` / `cursor` など / `other` / `none` / `unknown` | 既知のエージェントの印となる環境変数があるか |
 | `AGENT_DECLARED` | `claude-code_2-1-278_agent` など / `none` | `AI_AGENT` で道具が名乗った文字列そのもの |
 | `MANAGED_BY_GIT` | `true` / `false` / `unknown` | ホストで `git rev-parse --is-inside-work-tree` が通るか |
+| `AUTO_SUBMIT` | `prompt` / `off` / `unavailable` | 自動提出のフラグの実効値。コンテナの runner が決める (「サーバが配るフラグ」を参照) |
 
 エージェントの判定は [`detect-agent`](https://pypi.org/project/detect-agent/)
 (Vercel の [`detect-agent`](https://github.com/vercel/detect-agent) の Python 移植)
