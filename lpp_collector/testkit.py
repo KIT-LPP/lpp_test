@@ -339,7 +339,9 @@ def fail(
         hint = None
 
     if input is not None:
-        fields.insert(0, ("入力", short_path(input)))
+        # 学生はホストで見ることが多く、コンテナの中のパスは開けない。
+        # コンテナの中で使う「次の一手」の lpprun だけがパスを持つ
+        fields.insert(0, ("入力", Path(str(input)).name))
     if executed is not None:
         if executed.timed_out:
             fields.append(
