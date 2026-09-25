@@ -12,6 +12,7 @@ import argcomplete, argparse
 import glob
 from pathlib import Path
 from .docker import fix_permission, run_test_container, run_debug_build, update
+from .flags import AUTO_SUBMIT_ENV, auto_submit_mode, fetch_flags
 from .submit import is_full_suite_run, offer_after_test
 from .version import warn_on_version_skew
 import os
@@ -118,6 +119,14 @@ def run_pytest(args):
     # 今回のものかで決める。pytest が途中で殺されると控えは前回のまま残る
     session_id = str(uuid.uuid4())
     os.environ["LPP_SESSION_ID"] = session_id
+    # 自動提出を持ちかけるかはサーバが決める (flags.py)。pytest より先に
+    # 取っておくのは、プラグインが試行を送るのはテストの終わりで、そこまでに
+    # 実効値を envLabels に載せられる形で渡しておく必要があるからである
+    try:
+        auto_submit = auto_submit_mode(fetch_flags(testsuite))
+    except Exception:  # noqa: BLE001 - フラグのためにテストを止めない
+        auto_submit = auto_submit_mode(None)
+    os.environ[AUTO_SUBMIT_ENV] = auto_submit
     subprocess.call(
         [
             "pytest",
@@ -135,7 +144,7 @@ def run_pytest(args):
     # 通しても「すべてのテストが通りました」になってしまう
     if is_full_suite_run(args.testcases, pytest_args):
         try:
-            offer_after_test(session_id)
+            offer_after_test(session_id, auto_submit=auto_submit)
         except Exception as e:  # noqa: BLE001 - テストの結果は出したまま理由を見せる
             print(f"[lpp] 提出の確認に失敗しました: {e}")
 

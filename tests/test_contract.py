@@ -28,6 +28,7 @@ RESPONSES = {
     ("GET", "/api/devices"): (200, {"devices": []}),
     ("DELETE", "/api/devices/b1"): (200, {"unbound": True}),
     ("GET", "/api/assignments"): (200, {"assignments": []}),
+    ("GET", "/api/flags"): (200, {"flags": {"auto_submit": "prompt"}}),
 }
 
 
@@ -80,8 +81,9 @@ def test_every_call_matches_a_documented_route(recorded):
     api.list_devices()
     api.unbind_device("b1")
     api.list_assignments()
+    api.get_flags("01test")
 
-    assert len(calls) == 10
+    assert len(calls) == 11
     for call in calls:
         spec = CONTRACT["paths"].get(_spec_path(call.url.path))
         assert spec is not None, f"契約にない経路: {call.url.path}"
@@ -244,3 +246,21 @@ def test_run_fields_match_the_schema():
     assert "runExit" not in fields
     assert fields["runSignal"] == "6"
     assert fields["timedOut"] == "false"
+
+
+def test_flags_query_matches_the_contract(recorded):
+    calls, transport = recorded
+    api = LppApi(base_url="http://example.test", token="tok", transport=transport)
+
+    assert api.get_flags("01test") == {"auto_submit": "prompt"}
+
+    params = CONTRACT["paths"]["/api/flags"]["get"]["parameters"]
+    assert set(calls[0].url.params) <= {p["name"] for p in params if p["in"] == "query"}
+    # トークンは任意。セットアップ前の端末も取得する
+    assert {} in CONTRACT["paths"]["/api/flags"]["get"]["security"]
+
+
+def test_flags_without_an_assignment_send_no_query(recorded):
+    calls, transport = recorded
+    LppApi(base_url="http://example.test", transport=transport).get_flags()
+    assert not calls[0].url.params

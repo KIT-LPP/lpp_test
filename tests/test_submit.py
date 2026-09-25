@@ -130,6 +130,7 @@ def test_all_passing_and_a_yes_submits(tmp_path, capsys):
         ask=lambda q: "y",
         state_dir=tmp_path / "attempts",
         interactive=True,
+        auto_submit="prompt",
     )
     assert api.submissions == [("a1", True)]
     # 提出したことは控えにも残す
@@ -149,6 +150,7 @@ def test_anything_but_yes_does_not_submit(tmp_path, answer):
         ask=lambda q: answer,
         state_dir=tmp_path / "attempts",
         interactive=True,
+        auto_submit="prompt",
     )
     assert api.submissions == []
 
@@ -168,6 +170,7 @@ def test_eof_does_not_submit(tmp_path):
         ask=ask,
         state_dir=tmp_path / "attempts",
         interactive=True,
+        auto_submit="prompt",
     )
     assert api.submissions == []
 
@@ -183,6 +186,7 @@ def test_a_failed_run_is_not_offered(tmp_path):
         ask=lambda q: "y",
         state_dir=tmp_path / "attempts",
         interactive=True,
+        auto_submit="prompt",
     )
     assert api.submissions == []
 
@@ -202,6 +206,7 @@ def test_a_previous_run_is_not_offered_as_this_one(tmp_path):
         ask=lambda q: "y",
         state_dir=tmp_path / "attempts",
         interactive=True,
+        auto_submit="prompt",
     )
     assert api.submissions == []
 
@@ -216,6 +221,7 @@ def test_an_unbound_device_is_told_to_set_up(tmp_path, capsys):
         ask=lambda q: "y",
         state_dir=tmp_path / "attempts",
         interactive=True,
+        auto_submit="prompt",
     )
     assert "lppsetup" in capsys.readouterr().out
 
@@ -231,6 +237,7 @@ def test_an_undelivered_attempt_points_at_the_manual_command(tmp_path, capsys):
         ask=lambda q: "y",
         state_dir=tmp_path / "attempts",
         interactive=True,
+        auto_submit="prompt",
     )
     assert api.submissions == []
     assert "lppsubmit" in capsys.readouterr().out
@@ -251,8 +258,54 @@ def test_without_a_terminal_it_prints_the_command_instead_of_asking(tmp_path, ca
         ask=ask,
         state_dir=tmp_path / "attempts",
         interactive=False,
+        auto_submit="prompt",
     )
     assert "lppsubmit 01test" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("mode", ["off", "unavailable", "on", None])
+def test_it_asks_only_when_the_server_says_prompt(tmp_path, capsys, monkeypatch, mode):
+    """サーバのフラグが prompt のときだけ尋ねる。
+
+    届かなかったとき (unavailable)、知らない値、何も渡されなかったときも
+    尋ねない。授業の開始前に提出を尋ねるほうが、尋ねるべきときに尋ねないより困る。
+    案内も出さない。`lppsubmit` を勧めると尋ねないようにした意味が薄れる。
+    """
+    monkeypatch.delenv("LPP_AUTO_SUBMIT", raising=False)
+    passing_state(tmp_path)
+    api = FakeApi()
+
+    def ask(_):
+        raise AssertionError("prompt でないのに尋ねてはならない")
+
+    assert not offer_after_test(
+        "sess",
+        device=bound_device(tmp_path),
+        api_factory=lambda token: api,
+        ask=ask,
+        state_dir=tmp_path / "attempts",
+        interactive=True,
+        auto_submit=mode,
+    )
+    assert api.submissions == []
+    assert capsys.readouterr().out == ""
+
+
+def test_the_mode_comes_from_the_runner_through_the_environment(tmp_path, monkeypatch):
+    """runner は pytest の前に取った実効値を環境変数に置く。省略時はそれを読む。"""
+    monkeypatch.setenv("LPP_AUTO_SUBMIT", "prompt")
+    passing_state(tmp_path)
+    api = FakeApi()
+
+    assert offer_after_test(
+        "sess",
+        device=bound_device(tmp_path),
+        api_factory=lambda token: api,
+        ask=lambda q: "y",
+        state_dir=tmp_path / "attempts",
+        interactive=True,
+    )
+    assert api.submissions == [("a1", True)]
 
 
 # ---------------------------------------------------------------------------

@@ -253,3 +253,19 @@ def test_an_overlong_value_is_cut_instead_of_failing_the_upload(tmp_path: Path):
     relayed = json.dumps({AGENT_NAME: "x" * (MAX_VALUE_LENGTH + 10)})
     labels = env_labels(str(tmp_path), {RELAY_ENV: relayed})
     assert len(labels[AGENT_NAME]) == MAX_VALUE_LENGTH
+
+
+def test_the_auto_submit_mode_is_declared(tmp_path: Path):
+    """分析で「この試行のあとに提出を尋ねたか」を区別できるように載せる。"""
+    for mode in ("prompt", "off", "unavailable"):
+        labels = env_labels(str(tmp_path), {"LPP_AUTO_SUBMIT": mode})
+        assert labels[envlabels.AUTO_SUBMIT] == mode
+
+
+def test_the_auto_submit_mode_is_not_taken_from_the_host(tmp_path: Path):
+    """実効値はコンテナの runner が決める。ホストからの申告や知らない値は載せない。"""
+    relayed = json.dumps({envlabels.AUTO_SUBMIT: "prompt"})
+    assert envlabels.AUTO_SUBMIT not in env_labels(str(tmp_path), {RELAY_ENV: relayed})
+    assert envlabels.AUTO_SUBMIT not in env_labels(
+        str(tmp_path), {"LPP_AUTO_SUBMIT": "sure"}
+    )

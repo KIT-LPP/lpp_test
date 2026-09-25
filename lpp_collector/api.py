@@ -107,10 +107,11 @@ class LppApi:
         base_url: str = LPP_BASE_URL,
         token: Optional[str] = None,
         transport: Optional[httpx.BaseTransport] = None,
+        timeout: httpx.Timeout = TIMEOUT,
     ):
         self.base_url = base_url.rstrip("/")
         self.token = token
-        self._client = httpx.Client(timeout=TIMEOUT, transport=transport)
+        self._client = httpx.Client(timeout=timeout, transport=transport)
 
     def close(self):
         self._client.close()
@@ -211,6 +212,10 @@ class LppApi:
 
     def list_assignments(self) -> List[Dict[str, Any]]:
         return self._call("GET", "/api/assignments", 200)["assignments"]
+
+    def get_flags(self, assignment: Optional[str] = None) -> Dict[str, str]:
+        params = {"assignment": assignment} if assignment else None
+        return self._call("GET", "/api/flags", 200, params=params)["flags"]
 
 
 def _error_message(response: httpx.Response) -> str:

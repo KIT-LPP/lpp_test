@@ -5,7 +5,8 @@
 
 入口は 2 つある。
 
-- `lpptest` でテストがすべて通ったときの確認。「はい」と答えたときだけ送る
+- `lpptest` でテストがすべて通ったときの確認。「はい」と答えたときだけ送る。
+  尋ねるのはサーバのフラグ `auto_submit` が `prompt` のときだけである (flags.py)
 - `lppsubmit` による手動の提出。通らなかった試行でも出せる
 
 **提出は身元を伴う。** サーバは端末トークンなしの提出を受け付けない
@@ -28,6 +29,7 @@ from typing import Any, Callable, Dict, List, Optional
 from .api import ApiError, LppApi
 from .config import IS_DOCKER_ENV, LPP_DATA_DIR
 from .device import LppDevice
+from .flags import AUTO_SUBMIT_ENV, PROMPT
 from .uploader import FOREGROUND_DEADLINE, Uploader
 
 STATE_DIR = Path(LPP_DATA_DIR) / "attempts"
@@ -228,13 +230,24 @@ def offer_after_test(
     ask=input,
     state_dir: Optional[Path] = None,
     interactive: Optional[bool] = None,
+    auto_submit: Optional[str] = None,
 ) -> bool:
     """テストがすべて通っていたら提出するか尋ねる。送ったら True。
 
     `session_id` は今回の実行のものと控えが同じ実行のものかを見るために使う。
     pytest が途中で殺されると控えは前回のまま残るので、これを見ないと
     前回の試行を今回のものとして提出しかねない。
+
+    `auto_submit` はサーバが配るフラグの実効値 (flags.py)。`prompt` のときだけ
+    尋ねる。それ以外では提出に関する案内も出さない。授業の開始前に
+    `lppsubmit` を案内すると、尋ねないようにした意味が薄れる。
+    省略すると runner が渡した環境変数を読み、それも無ければ尋ねない。
     """
+    if auto_submit is None:
+        auto_submit = os.environ.get(AUTO_SUBMIT_ENV)
+    if auto_submit != PROMPT:
+        return False
+
     state = latest_attempt(state_dir)
     if state is None:
         return False
